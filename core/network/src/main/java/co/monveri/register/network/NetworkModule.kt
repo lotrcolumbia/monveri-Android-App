@@ -33,6 +33,9 @@ object NetworkModule {
         // Body logging is debug-only in later phases; for Phase 1 a HEADERS level is sufficient
         // to validate that AuthInterceptor is doing its job without dumping PINs into logcat.
         level = HttpLoggingInterceptor.Level.HEADERS
+        // Never log auth header values — they're the entire access credential.
+        redactHeader(AuthHeaders.STORE_KEY)
+        redactHeader(AuthHeaders.EMPLOYEE_ID)
     }
 
     @Provides

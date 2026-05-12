@@ -23,13 +23,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private const val PIN_LENGTH = 4
 
@@ -44,7 +44,7 @@ fun PinScreen(
     onUnpair: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.login.collectAsState()
+    val state by viewModel.login.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.employee) {
         if (state.employee != null) onAuthenticated()
@@ -55,7 +55,14 @@ fun PinScreen(
             TopAppBar(
                 title = { Text("Enter PIN") },
                 actions = {
-                    OutlinedButton(onClick = onUnpair) { Text("Unpair") }
+                    OutlinedButton(
+                        onClick = {
+                            // Clear persisted pairing + session state BEFORE navigating so a
+                            // subsequent cold start can't route back to PIN against the old key.
+                            viewModel.unpair()
+                            onUnpair()
+                        },
+                    ) { Text("Unpair") }
                 },
             )
         },

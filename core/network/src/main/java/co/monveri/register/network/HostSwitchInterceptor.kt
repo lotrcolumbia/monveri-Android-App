@@ -27,7 +27,7 @@ class HostSwitchInterceptor @Inject constructor(
 
         // Only rewrite when our placeholder host is in play — caller-supplied absolute URLs
         // (pairing flow) keep their own host.
-        if (originalUrl.host != "unpaired.invalid") {
+        if (originalUrl.host != BaseUrlProvider.UNPAIRED_HOST) {
             return chain.proceed(original)
         }
 

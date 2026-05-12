@@ -8,6 +8,7 @@ import co.monveri.register.model.Employee
 import co.monveri.register.model.KeyValidation
 import io.mockk.Runs
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -94,6 +95,7 @@ class AuthViewModelTest {
             assertNotNull(state.errorMessage)
             assertEquals(false, state.isLoading)
         }
+        coVerify(exactly = 0) { repository.pair(any(), any()) }
     }
 
     @Test

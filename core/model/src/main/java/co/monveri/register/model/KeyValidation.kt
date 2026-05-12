@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class KeyValidation(
     @SerialName("success") val success: Boolean,
-    @SerialName("store_name") val storeName: String,
+    @SerialName("store_name") val storeName: String? = null,
     @SerialName("store_code") val storeCode: String? = null,
     @SerialName("store_address") val storeAddress: String? = null,
     @SerialName("store_phone") val storePhone: String? = null,

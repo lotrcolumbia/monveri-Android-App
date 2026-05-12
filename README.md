@@ -9,8 +9,8 @@ Phase 1 ships the project skeleton plus the device-pairing and employee-PIN auth
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 1 | Project skeleton + auth | ✅ in this branch |
-| 2 | Design system, networking, persistence | planned |
+| 1 | Project skeleton + auth-only slice of networking / secure prefs | ✅ in this branch |
+| 2 | Full design system + Retrofit cache & retries + Room persistence | planned |
 | 3 | Catalog, customer, cart | planned |
 | 4 | Stripe Bluetooth Reader M2 | planned |
 | 5 | Tap to Pay on Android | planned |

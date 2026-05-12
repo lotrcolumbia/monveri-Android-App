@@ -6,7 +6,6 @@ import co.monveri.register.model.AuthState
 import co.monveri.register.model.Employee
 import co.monveri.register.model.KeyValidation
 import co.monveri.register.model.UserSession
-import co.monveri.register.network.AuthHeaders
 import co.monveri.register.network.MonveriApi
 import co.monveri.register.network.EmployeeLoginRequest
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,15 +61,16 @@ class AuthRepository @Inject constructor(
         }
 
         if (!response.success) {
-            throw AuthFailure.InvalidKey(response.storeName.ifBlank { "Pairing failed" })
+            throw AuthFailure.InvalidKey("Invalid or inactive API key")
         }
 
+        val resolvedStoreName = response.storeName ?: "Monveri Store"
         prefs.storeApiKey = apiKey
         prefs.storeBaseUrl = normalized
-        prefs.storeName = response.storeName
+        prefs.storeName = resolvedStoreName
         prefs.storeCode = response.storeCode
         refreshState()
-        return response
+        return response.copy(storeName = resolvedStoreName)
     }
 
     /**
@@ -179,10 +179,5 @@ class AuthRepository @Inject constructor(
     private companion object {
         const val UNAUTHORIZED = 401
         val CLIENT_ERROR_RANGE = 400..499
-
-        // Reference symbols so detekt's unused-import check stays quiet if the constants
-        // ever get inlined; AuthHeaders is the documented place for header names.
-        @Suppress("unused")
-        val AUTH_HEADERS_REF = AuthHeaders.STORE_KEY
     }
 }
