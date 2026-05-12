@@ -9,7 +9,10 @@ plugins {
 }
 
 android {
-    namespace = "co.monveri.MonveriRegister"
+    // Namespace matches the Kotlin/Java source package so manifest-relative class names
+    // (`.MainActivity`, `.MonveriApp`) resolve to real classes. Distinct from `applicationId`,
+    // which is the installed APK package ID and intentionally mirrors the iOS bundle ID.
+    namespace = "co.monveri.register"
     compileSdk = 35
 
     defaultConfig {
