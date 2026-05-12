@@ -31,6 +31,9 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.security.crypto)
+    // AuthRepository catches retrofit2.HttpException in `runCatchingNetwork` — retrofit is part
+    // of the data-layer surface here, not just an internal of :core:network.
+    implementation(libs.retrofit)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
