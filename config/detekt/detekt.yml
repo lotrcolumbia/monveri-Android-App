@@ -1,0 +1,39 @@
+# Detekt configuration for Monveri Register Android.
+# Only overrides from defaults are listed; everything else inherits.
+
+build:
+  maxIssues: 0
+
+complexity:
+  LongParameterList:
+    functionThreshold: 7
+    constructorThreshold: 8
+  TooManyFunctions:
+    thresholdInClasses: 20
+    thresholdInFiles: 20
+
+style:
+  MaxLineLength:
+    maxLineLength: 140
+  ReturnCount:
+    max: 4
+  MagicNumber:
+    ignoreNumbers: ['-1', '0', '1', '2', '3', '4', '6', '8', '10', '16', '24', '32', '64', '100', '1000']
+    ignoreEnums: true
+    ignoreCompanionObjectPropertyDeclaration: true
+  WildcardImport:
+    excludeImports:
+      - 'java.util.*'
+      - 'kotlinx.android.synthetic.*'
+
+formatting:
+  active: true
+  android: true
+  autoCorrect: false
+  MaximumLineLength:
+    maxLineLength: 140
+
+naming:
+  FunctionNaming:
+    excludes: ['**/*Test.kt', '**/*Spec.kt']
+    functionPattern: '[a-zA-Z][a-zA-Z0-9]*'

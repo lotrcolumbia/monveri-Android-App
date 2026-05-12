@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base XML theme picked up by the manifest. Compose owns visual styling at runtime via
+         MonveriTheme; this is just enough to satisfy the manifest and the splash window. -->
+    <style name="Theme.MonveriRegister" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
