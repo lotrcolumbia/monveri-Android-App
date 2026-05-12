@@ -23,6 +23,12 @@ dependencies {
 
 tasks.register("detektAll") {
     group = "verification"
-    description = "Runs detekt on every subproject."
-    dependsOn(subprojects.map { "${it.path}:detekt" })
+    description = "Runs detekt on every leaf subproject that applies the plugin."
+    // `include(":core:design")` etc. implicitly create empty parent projects (`:core`, `:feature`)
+    // that don't apply the detekt plugin — filter to leaf modules with a real buildFile.
+    dependsOn(
+        subprojects
+            .filter { it.buildFile.exists() }
+            .map { "${it.path}:detekt" }
+    )
 }
