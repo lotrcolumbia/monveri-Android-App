@@ -13,11 +13,22 @@ android {
 
     defaultConfig {
         minSdk = 29
+
+        // Export the Room schema JSON so migrations have a diffable source of truth.
+        // The directory is checked into git so reviewers see the schema delta on every PR.
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+            arg("room.incremental", "true")
+        }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
 }
 
@@ -31,8 +42,13 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.security.crypto)
-    // AuthRepository catches retrofit2.HttpException in `runCatchingNetwork` — retrofit is part
-    // of the data-layer surface here, not just an internal of :core:network.
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // AuthRepository handles retrofit2.HttpException at the data-layer boundary so it can
+    // translate to NetworkResult.Failure; retrofit is part of the public surface here.
     implementation(libs.retrofit)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
