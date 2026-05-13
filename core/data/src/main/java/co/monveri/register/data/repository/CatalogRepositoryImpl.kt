@@ -7,7 +7,6 @@ import co.monveri.register.network.NetworkResult
 import co.monveri.register.network.dto.CategoryDto
 import co.monveri.register.network.dto.ProductDto
 import co.monveri.register.network.dto.ProductVariantDto
-import co.monveri.register.network.map
 import co.monveri.register.network.runCatchingNetwork
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,10 +72,25 @@ class CatalogRepositoryImpl @Inject constructor(
 
     override suspend fun search(query: String, limit: Int): NetworkResult<List<Product>> {
         val safeLimit = limit.coerceIn(1, MAX_SEARCH_LIMIT)
-        return runCatchingNetwork(errorMapper) {
+        val result = runCatchingNetwork(errorMapper) {
             api.searchProducts(query = query, limit = safeLimit)
-        }.map { envelope ->
-            envelope.data?.products.orEmpty().map { it.toDomain() }
+        }
+        return when (result) {
+            is NetworkResult.Failure -> result
+            is NetworkResult.Success -> {
+                val envelope = result.data
+                val payload = envelope.data
+                if (!envelope.success || payload == null) {
+                    // Surface backend failures as a typed error instead of mapping null → empty
+                    // list — otherwise the user sees "no results" when the real cause is a
+                    // permission / 5xx / message-only error from the server.
+                    NetworkResult.Failure(
+                        NetworkError.Server(MAX_HTTP_CODE, envelope.message ?: "Search failed"),
+                    )
+                } else {
+                    NetworkResult.Success(payload.products.map { it.toDomain() })
+                }
+            }
         }
     }
 

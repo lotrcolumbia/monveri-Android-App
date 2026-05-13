@@ -38,11 +38,16 @@ class NetworkErrorMapper(private val json: Json = Json { ignoreUnknownKeys = tru
     }
 
     private fun parseErrorMessage(e: HttpException): String {
-        val raw = e.response()?.errorBody()?.string().orEmpty()
+        // `errorBody().string()` reads from the network — it can throw IOException on a half-closed
+        // socket. We're already inside the error-mapping path, so a throw here would propagate out
+        // of `runCatchingNetwork` (its catch is only around the original block, not around the
+        // mapper). Wrap the read AND the decode so we always fall back to the HTTP status message.
+        val raw = runCatching { e.response()?.errorBody()?.string() }.getOrNull().orEmpty()
         if (raw.isBlank()) return e.message()
-        return runCatching {
+        val decoded = runCatching {
             json.decodeFromString(ApiErrorBody.serializer(), raw).message
-        }.getOrNull() ?: e.message()
+        }.getOrNull()
+        return decoded?.takeIf { it.isNotBlank() } ?: e.message()
     }
 
     private companion object {

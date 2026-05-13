@@ -319,8 +319,11 @@ private fun ProductCard(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 if (product.tracksStock && product.stockQuantity <= 0) {
+                    // Static badge — `enabled = false` removes the ripple + makes screen readers
+                    // skip the interactive role. An empty onClick would look tappable.
                     AssistChip(
                         onClick = {},
+                        enabled = false,
                         label = { Text("Out") },
                     )
                 }

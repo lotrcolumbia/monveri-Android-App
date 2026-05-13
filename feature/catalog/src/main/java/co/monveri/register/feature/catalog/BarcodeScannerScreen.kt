@@ -13,6 +13,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -157,25 +158,31 @@ private fun CameraPreviewWithAnalyzer(onBarcodeDetected: (String) -> Unit) {
             }
             val providerFuture = ProcessCameraProvider.getInstance(ctx)
             providerFuture.addListener({
-                val cameraProvider = providerFuture.get()
-                val preview = Preview.Builder().build().also {
-                    it.surfaceProvider = previewView.surfaceProvider
-                }
-                val analysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also { ia ->
-                        ia.setAnalyzer(executor) { proxy ->
-                            processFrame(proxy, scanner, onBarcodeDetected)
-                        }
+                // Wrap provider + analyzer + bindToLifecycle: any of them can throw if the
+                // camera is held by another process, the device has no rear camera, or the
+                // permission was revoked between LaunchedEffect and binding. We'd rather log
+                // and show the (empty) preview than crash the activity.
+                runCatching {
+                    val cameraProvider = providerFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.surfaceProvider = previewView.surfaceProvider
                     }
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    analysis,
-                )
+                    val analysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also { ia ->
+                            ia.setAnalyzer(executor) { proxy ->
+                                processFrame(proxy, scanner, onBarcodeDetected)
+                            }
+                        }
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview,
+                        analysis,
+                    )
+                }.onFailure { t -> Log.e("BarcodeScanner", "Camera bind failed", t) }
             }, ContextCompat.getMainExecutor(ctx))
             previewView
         },
@@ -227,12 +234,19 @@ private fun Barcode.isLikelyProductBarcode(): Boolean = when (format) {
 @Composable
 private fun ScanFrameOverlay() {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // White rounded border over the preview so the cashier knows where to aim. The shape's
+        // clip must come before the border modifier so the corners are rounded — otherwise
+        // detekt-formatting is happy but the rendered border is a hard rectangle clipped after.
         Box(
             modifier = Modifier
                 .padding(MonveriSpacing.Xl)
                 .size(SCAN_FRAME_SIZE)
                 .clip(RoundedCornerShape(MonveriSpacing.Md))
-                .background(Color(0x00FFFFFF)),
+                .border(
+                    width = SCAN_FRAME_BORDER,
+                    color = Color.White.copy(alpha = 0.85f),
+                    shape = RoundedCornerShape(MonveriSpacing.Md),
+                ),
         )
     }
     Column(
@@ -291,3 +305,4 @@ private fun CameraPermissionRationale(onRequest: () -> Unit, onCancel: () -> Uni
 }
 
 private val SCAN_FRAME_SIZE = 240.dp
+private val SCAN_FRAME_BORDER = 2.dp

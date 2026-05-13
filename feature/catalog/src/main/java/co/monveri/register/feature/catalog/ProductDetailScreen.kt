@@ -94,10 +94,13 @@ fun ProductDetailScreen(
                     onDecrement = { viewModel.onQuantityChange(-1) },
                     onAddToCart = {
                         if (viewModel.addToCart()) {
+                            // Show the confirmation inside the coroutine and only navigate after
+                            // `showSnackbar` returns — otherwise `onAddedToCart()` pops this
+                            // destination and disposes the SnackbarHost before the message paints.
                             scope.launch {
                                 snackbarHostState.showSnackbar("Added to cart")
+                                onAddedToCart()
                             }
-                            onAddedToCart()
                         }
                     },
                 )

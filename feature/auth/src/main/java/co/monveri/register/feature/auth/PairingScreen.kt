@@ -37,8 +37,8 @@ import co.monveri.register.design.tokens.MonveriSpacing
 /**
  * Manual pairing form: user pastes store URL + API key from the back office, taps Pair.
  *
- * The plan calls for a 6-digit code; the real backend expects the full API key. Future Phase 3
- * adds a camera-based QR scanner that delivers the same fields in one tap.
+ * The plan calls for a 6-digit code; the real backend expects the full API key. A camera-based
+ * QR scanner that delivers the same fields in one tap is on the roadmap for a later phase.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,7 +116,7 @@ fun PairingScreen(
             )
 
             Text(
-                text = "QR-code scan is coming in Phase 3.",
+                text = "Tip: paste the store URL and API key from the back office.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.CenterHorizontally),

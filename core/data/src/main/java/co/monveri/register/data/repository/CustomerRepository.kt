@@ -35,7 +35,7 @@ data class Customer(
             .joinToString(" ")
             .ifBlank { company }
             ?.ifBlank { null }
-            ?: email
-            ?: phone
+            ?: email?.ifBlank { null }
+            ?: phone?.ifBlank { null }
             ?: "Customer #$id"
 }

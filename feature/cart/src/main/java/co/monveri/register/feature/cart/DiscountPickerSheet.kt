@@ -48,7 +48,12 @@ fun DiscountPickerSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    var mode by remember { mutableStateOf(DiscountMode.Percent) }
+    // When the sheet opens with an existing discount, start in Dollars mode — the value
+    // was applied as a flat amount (we don't round-trip a percentage). Defaulting to Percent
+    // mode with an empty percent field would compute 0 on Apply and silently wipe the discount.
+    var mode by remember {
+        mutableStateOf(if (currentDiscountCents > 0) DiscountMode.Dollars else DiscountMode.Percent)
+    }
     var dollarText by remember {
         mutableStateOf(
             if (currentDiscountCents > 0) formatCentsAsDollars(currentDiscountCents) else "",
