@@ -31,6 +31,11 @@ class TerminalManager @Inject constructor(
     private val tokenProvider: MonveriConnectionTokenProvider,
 ) : TerminalListener {
 
+    // Guards `ensureInitialized()` so two cold-start callers (MonveriApp.onCreate + a ViewModel
+    // injecting TerminalManager) can't both race past the isInitialized() fast-path and call
+    // initTerminal twice — Stripe throws IllegalStateException on the second init.
+    private val initLock = Any()
+
     private val _connectionStatus = MutableStateFlow(ConnectionStatus.NOT_CONNECTED)
     val connectionStatus: StateFlow<ConnectionStatus> = _connectionStatus.asStateFlow()
 
@@ -46,14 +51,25 @@ class TerminalManager @Inject constructor(
      */
     fun ensureInitialized() {
         if (Terminal.isInitialized()) return
-        Terminal.initTerminal(
-            context,
-            // VERBOSE in debug, NONE in release — the LogLevel enum doesn't expose `Off` so we
-            // pass `NONE` explicitly. Sensitive auth payloads stay scrubbed by the SDK either way.
-            if (BuildConfig.DEBUG) LogLevel.VERBOSE else LogLevel.NONE,
-            tokenProvider,
-            this,
-        )
+        synchronized(initLock) {
+            if (Terminal.isInitialized()) return
+            try {
+                Terminal.initTerminal(
+                    context,
+                    // VERBOSE in debug, NONE in release — the LogLevel enum doesn't expose `Off`
+                    // so we pass `NONE` explicitly. Sensitive auth payloads stay scrubbed by the
+                    // SDK either way.
+                    if (BuildConfig.DEBUG) LogLevel.VERBOSE else LogLevel.NONE,
+                    tokenProvider,
+                    this,
+                )
+            } catch (e: IllegalStateException) {
+                // SDK reports duplicate init via IllegalStateException. With the double-check
+                // above this shouldn't happen, but defending against it keeps an unusual class
+                // loader / multi-process scenario from crashing onCreate.
+                if (!Terminal.isInitialized()) throw e
+            }
+        }
     }
 
     override fun onUnexpectedReaderDisconnect(reader: Reader) {

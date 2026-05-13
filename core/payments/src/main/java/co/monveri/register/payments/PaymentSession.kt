@@ -7,10 +7,13 @@ import com.stripe.stripeterminal.external.models.CaptureMethod
 import com.stripe.stripeterminal.external.models.PaymentIntent
 import com.stripe.stripeterminal.external.models.PaymentIntentParameters
 import com.stripe.stripeterminal.external.models.TerminalException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -38,43 +41,52 @@ class PaymentSession @Inject constructor(
     val state: Flow<PaymentSessionState> = _state.asStateFlow()
 
     private var inFlight: Cancelable? = null
+    // Serialize concurrent charge() invocations so two callers can't trample `inFlight` or
+    // interleave state transitions (Creating → AwaitingCard → Processing → terminal).
+    private val chargeMutex = Mutex()
 
     /**
      * Run a one-shot payment for [amountCents] in [currency]. Returns the final state — the same
-     * value that gets emitted on [state]. Throws nothing; failures are wrapped in
-     * [PaymentSessionState.Failed].
+     * value that gets emitted on [state]. Throws nothing for terminal SDK failures; coroutine
+     * cancellation propagates as usual via [CancellationException].
      */
-    suspend fun charge(amountCents: Long, currency: String = "usd"): PaymentSessionState {
-        terminalManager.ensureInitialized()
-        if (Terminal.getInstance().connectedReader == null) {
-            return setState(PaymentSessionState.Failed("No reader connected"))
+    suspend fun charge(amountCents: Long, currency: String = "usd"): PaymentSessionState =
+        chargeMutex.withLock {
+            terminalManager.ensureInitialized()
+            if (Terminal.getInstance().connectedReader == null) {
+                return@withLock setState(PaymentSessionState.Failed("No reader connected"))
+            }
+            try {
+                setState(PaymentSessionState.CreatingIntent)
+                val params = PaymentIntentParameters.Builder()
+                    .setAmount(amountCents)
+                    .setCurrency(currency)
+                    // Automatic capture mirrors the iOS test harness flow — no manual capture call.
+                    .setCaptureMethod(CaptureMethod.Automatic)
+                    .build()
+                val intent = createIntent(params)
+
+                setState(PaymentSessionState.AwaitingCard)
+                val collected = collectPaymentMethod(intent)
+
+                setState(PaymentSessionState.Processing)
+                val confirmed = confirmPaymentIntent(collected)
+
+                setState(PaymentSessionState.Succeeded(confirmed.id ?: ""))
+            } catch (e: CancellationException) {
+                // Cooperate with structured concurrency — never swallow cancellation. Reset the
+                // session state so the next charge starts from Idle.
+                _state.value = PaymentSessionState.Idle
+                throw e
+            } catch (e: TerminalException) {
+                setState(PaymentSessionState.Failed(e.errorMessage))
+            } catch (e: Exception) {
+                // Defensive — collectPaymentMethod can throw IllegalStateException etc.
+                setState(PaymentSessionState.Failed(e.message ?: "Payment failed"))
+            } finally {
+                inFlight = null
+            }
         }
-        return try {
-            setState(PaymentSessionState.CreatingIntent)
-            val params = PaymentIntentParameters.Builder()
-                .setAmount(amountCents)
-                .setCurrency(currency)
-                // Automatic capture mirrors the iOS test harness ($1.00) flow — no manual capture call.
-                .setCaptureMethod(CaptureMethod.Automatic)
-                .build()
-            val intent = createIntent(params)
-
-            setState(PaymentSessionState.AwaitingCard)
-            val collected = collectPaymentMethod(intent)
-
-            setState(PaymentSessionState.Processing)
-            val confirmed = confirmPaymentIntent(collected)
-
-            setState(PaymentSessionState.Succeeded(confirmed.id ?: ""))
-        } catch (e: TerminalException) {
-            setState(PaymentSessionState.Failed(e.errorMessage))
-        } catch (e: Exception) {
-            // Defensive — collectPaymentMethod can throw IllegalStateException etc.
-            setState(PaymentSessionState.Failed(e.message ?: "Payment failed"))
-        } finally {
-            inFlight = null
-        }
-    }
 
     /** Cancel the in-flight collect step. No-op if nothing is collecting. */
     fun cancel() {

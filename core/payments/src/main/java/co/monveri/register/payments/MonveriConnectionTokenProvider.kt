@@ -33,14 +33,20 @@ class MonveriConnectionTokenProvider @Inject constructor(
             try {
                 val envelope = api.stripeConnectionToken()
                 val payload = envelope.data
-                if (!envelope.success || payload == null) {
-                    callback.onFailure(
+                val secret = payload?.secret?.trim().orEmpty()
+                when {
+                    !envelope.success || payload == null -> callback.onFailure(
                         ConnectionTokenException(
                             envelope.message ?: "Connection token request failed",
                         ),
                     )
-                } else {
-                    callback.onSuccess(payload.secret)
+                    // Defend against a backend regression that returns `success=true` with an
+                    // empty `secret` — the SDK would accept it then fail mid-auth with a less
+                    // diagnostic error. Failing loudly here keeps the cashier-facing message clean.
+                    secret.isBlank() -> callback.onFailure(
+                        ConnectionTokenException("Connection token is blank"),
+                    )
+                    else -> callback.onSuccess(secret)
                 }
             } catch (e: Exception) {
                 // Wrapping non-Stripe exceptions keeps a single failure surface the SDK understands.

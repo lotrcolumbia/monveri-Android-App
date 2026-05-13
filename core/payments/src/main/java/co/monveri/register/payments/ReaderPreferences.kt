@@ -3,12 +3,15 @@ package co.monveri.register.payments
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,8 +30,16 @@ class ReaderPreferences @Inject constructor(
 
     private val dataStore = context.readerDataStore
 
+    // Wrap `.data` with `.catch` so a corrupted DataStore file surfaces as empty prefs instead
+    // of terminating the flow (and crashing the cold-start auto-reconnect). Mirrors the pattern
+    // in `UserPreferences`. Non-IO exceptions still propagate.
+    private val safeData: Flow<Preferences> = dataStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+
     /** Reactive view of the persisted serial — null when no reader has ever been paired. */
-    val lastReaderSerial: Flow<String?> = dataStore.data.map { it[KEY_SERIAL] }
+    val lastReaderSerial: Flow<String?> = safeData.map { it[KEY_SERIAL] }
 
     suspend fun rememberReader(serial: String) {
         dataStore.edit { prefs -> prefs[KEY_SERIAL] = serial }

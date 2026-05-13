@@ -18,6 +18,17 @@
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!--
+      Legacy permissions for API 29–30 — BLUETOOTH_SCAN/CONNECT didn't exist yet so the
+      older runtime needs BLUETOOTH + BLUETOOTH_ADMIN. Capped at maxSdkVersion=30 so API 31+
+      installs don't request them.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION"
         android:maxSdkVersion="30" />

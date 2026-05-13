@@ -243,7 +243,14 @@ private fun DiscoveryActive(
             )
         } else {
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                items(state.discoveredReaders, key = { it.serialNumber.orEmpty() }) { reader ->
+                // Fall back to the SDK object's identity hash when `serialNumber` is null —
+                // two readers without a serial would otherwise share the empty-string key and
+                // crash the LazyColumn. The hash is stable for the Reader instances Stripe
+                // emits across a single discovery cycle.
+                items(
+                    state.discoveredReaders,
+                    key = { reader -> reader.serialNumber ?: reader.hashCode().toString() },
+                ) { reader ->
                     DiscoveredReaderRow(
                         reader = reader,
                         connecting = state.isConnecting,

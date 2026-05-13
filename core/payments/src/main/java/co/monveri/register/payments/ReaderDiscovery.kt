@@ -52,7 +52,12 @@ class ReaderDiscovery @Inject constructor(
             config,
             listener,
             object : Callback {
-                override fun onSuccess() = Unit
+                override fun onSuccess() {
+                    // SDK reports discovery completed (timeout reached). Close the flow so
+                    // collectors get a terminal signal and can reset their `isDiscovering` UI
+                    // flag — otherwise the spinner sticks forever.
+                    close()
+                }
                 override fun onFailure(e: TerminalException) {
                     close(e)
                 }
