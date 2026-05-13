@@ -42,6 +42,13 @@ coil = "2.7.0"
 androidx-camera = "1.4.0"
 mlkit-barcode = "17.3.0"
 
+# Stripe Terminal — Bluetooth M2 reader (Phase 4); Tap to Pay arrives in Phase 5.
+# 3.x is the current stable line for the Android SDK; major-version bumps require code review.
+stripeterminal = "3.10.0"
+
+# Compose-friendly runtime permission requests (Bluetooth + Location for reader discovery).
+accompanist-permissions = "0.36.0"
+
 # Testing
 junit = "4.13.2"
 junit-ext = "1.2.1"
@@ -104,6 +111,13 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "androidx-camera" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "androidx-camera" }
 mlkit-barcode = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkit-barcode" }
+
+# Stripe Terminal (Bluetooth M2 transport)
+stripeterminal-core = { group = "com.stripe", name = "stripeterminal-core", version.ref = "stripeterminal" }
+stripeterminal-bluetooth = { group = "com.stripe", name = "stripeterminal-bluetooth", version.ref = "stripeterminal" }
+
+# Accompanist permissions (Compose runtime permission helpers)
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist-permissions" }
 
 # Detekt
 detekt-formatting = { group = "io.gitlab.arturbosch.detekt", name = "detekt-formatting", version.ref = "detekt" }

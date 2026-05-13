@@ -68,9 +68,15 @@ dependencies {
     implementation(project(":core:network"))
     implementation(project(":core:data"))
     implementation(project(":core:pricing"))
+    implementation(project(":core:payments"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:catalog"))
     implementation(project(":feature:cart"))
+    implementation(project(":feature:settings"))
+
+    // Stripe Terminal types appear in the debug Test Harness ViewModel state — pin the SDK
+    // here so the debug variant compiles even though :app's main code never calls Stripe.
+    debugImplementation(libs.stripeterminal.core)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

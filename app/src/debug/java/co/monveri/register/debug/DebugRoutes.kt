@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
  */
 object DebugRoutes {
     const val COMPONENT_GALLERY = "debug/component-gallery"
+    const val STRIPE_TEST_HARNESS = "debug/stripe-test-harness"
 }
 
 /**
@@ -20,6 +21,9 @@ fun NavGraphBuilder.addDebugRoutes(navController: NavController) {
     composable(DebugRoutes.COMPONENT_GALLERY) {
         ComponentGalleryScreen(onBack = navController::popBackStack)
     }
+    composable(DebugRoutes.STRIPE_TEST_HARNESS) {
+        StripeTestHarnessScreen(onBack = navController::popBackStack)
+    }
 }
 
 /**
@@ -27,4 +31,12 @@ fun NavGraphBuilder.addDebugRoutes(navController: NavController) {
  */
 fun createGalleryNavigator(navController: NavController): (() -> Unit)? = {
     navController.navigate(DebugRoutes.COMPONENT_GALLERY)
+}
+
+/**
+ * Navigator for the Stripe Test Harness — null in release. Surfaces the $0.50 test-charge entry
+ * point on the reader settings screen only in debug builds.
+ */
+fun createStripeTestHarnessNavigator(navController: NavController): (() -> Unit)? = {
+    navController.navigate(DebugRoutes.STRIPE_TEST_HARNESS)
 }

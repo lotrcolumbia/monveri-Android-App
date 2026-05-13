@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -78,6 +79,7 @@ fun CatalogListScreen(
     onProductSelected: (Long) -> Unit,
     onScanRequested: () -> Unit,
     onCartRequested: () -> Unit,
+    onSettingsRequested: () -> Unit = {},
     pendingScannedBarcode: String? = null,
     onScannedBarcodeConsumed: () -> Unit = {},
     viewModel: CatalogListViewModel = hiltViewModel(),
@@ -108,6 +110,9 @@ fun CatalogListScreen(
                 actions = {
                     IconButton(onClick = onScanRequested) {
                         Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan barcode")
+                    }
+                    IconButton(onClick = onSettingsRequested) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
                 },
             )
