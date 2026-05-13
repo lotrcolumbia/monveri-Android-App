@@ -2,6 +2,7 @@ package co.monveri.register.design.components
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -69,8 +70,9 @@ fun LoadingShimmerRows(
     rowCount: Int = DEFAULT_ROW_COUNT,
     modifier: Modifier = Modifier,
 ) {
+    val safeRowCount = rowCount.coerceAtLeast(0)
     Column(modifier = modifier.padding(horizontal = MonveriSpacing.Lg)) {
-        repeat(rowCount) {
+        repeat(safeRowCount) {
             LoadingShimmer(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -15,7 +15,6 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -34,8 +33,8 @@ import co.monveri.register.design.tokens.MonveriSpacing
 enum class ToastKind { Success, Warning, Danger, Info }
 
 /**
- * Encoded into the Snackbar visuals via [SnackbarData.visuals.message] using a `kind:msg` prefix.
- * Callers should use [SnackbarHostState.showToast] which handles the encoding for them.
+ * Encoded into the Snackbar visuals' message string using a `kind::msg` prefix. Callers should
+ * use [SnackbarHostState.showToast] which handles the encoding for them.
  */
 private const val KIND_DELIMITER = "::"
 
@@ -54,7 +53,6 @@ fun MonveriToastHost(snackbarHostState: SnackbarHostState) {
         val backgroundColor = backgroundFor(kind)
         val contentColor = contentColorFor(kind)
         Snackbar(
-            snackbarData = data,
             containerColor = Color.Transparent,
             contentColor = contentColor,
             modifier = Modifier

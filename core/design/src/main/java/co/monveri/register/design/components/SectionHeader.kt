@@ -28,7 +28,7 @@ fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            text = title.uppercase(),
+            text = title,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

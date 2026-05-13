@@ -16,13 +16,13 @@ import java.net.UnknownHostException
  */
 class NetworkErrorMapper(private val json: Json = Json { ignoreUnknownKeys = true }) {
 
-    fun map(throwable: Throwable): NetworkError = when (throwable) {
-        is HttpException -> mapHttp(throwable)
+    fun map(exception: Exception): NetworkError = when (exception) {
+        is HttpException -> mapHttp(exception)
         is SocketTimeoutException -> NetworkError.Timeout()
         is UnknownHostException, is ConnectException -> NetworkError.Offline()
-        is SerializationException -> NetworkError.Parse(throwable.message ?: "Could not parse response")
-        is IOException -> NetworkError.Offline(throwable.message ?: "Connection failure")
-        else -> NetworkError.Unknown(throwable.message ?: "Unexpected error")
+        is SerializationException -> NetworkError.Parse(exception.message ?: "Could not parse response")
+        is IOException -> NetworkError.Offline(exception.message ?: "Connection failure")
+        else -> NetworkError.Unknown(exception.message ?: "Unexpected error")
     }
 
     private fun mapHttp(e: HttpException): NetworkError {
@@ -56,8 +56,9 @@ class NetworkErrorMapper(private val json: Json = Json { ignoreUnknownKeys = tru
 
 /**
  * Run [block] and return its result as a [NetworkResult]. Coroutine cancellation propagates
- * (we never swallow [CancellationException]). All other throwables are routed through
- * [NetworkErrorMapper] into a typed failure.
+ * (we never swallow [CancellationException]). All other `Exception`s are routed through
+ * [NetworkErrorMapper] into a typed failure. Fatal JVM `Error`s (OOM, StackOverflow, etc.) are
+ * not caught — they propagate so the process can die cleanly.
  */
 suspend inline fun <T> runCatchingNetwork(
     mapper: NetworkErrorMapper,
@@ -66,6 +67,6 @@ suspend inline fun <T> runCatchingNetwork(
     NetworkResult.Success(block())
 } catch (cancellation: CancellationException) {
     throw cancellation
-} catch (t: Throwable) {
-    NetworkResult.Failure(mapper.map(t))
+} catch (e: Exception) {
+    NetworkResult.Failure(mapper.map(e))
 }

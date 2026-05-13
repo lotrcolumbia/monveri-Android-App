@@ -64,18 +64,47 @@ object NetworkModule {
     fun provideOkHttpCache(@ApplicationContext context: Context): Cache =
         Cache(File(context.cacheDir, "http"), CACHE_BYTES)
 
-    /** Adds `Cache-Control: max-age=60` to GET responses so OkHttp's cache actually populates. */
+    /**
+     * Hints OkHttp's disk cache to keep successful GETs for [CACHE_MAX_AGE_SECONDS].
+     *
+     * Constraints honoured:
+     *  - If the server already returned `no-store`, `no-cache`, or `private`, leave it alone —
+     *    the server's directive wins.
+     *  - Authenticated requests (those carrying `X-Store-Key`) get a `private` cache directive
+     *    so shared/intermediary caches never store the response. Every request from this app is
+     *    authenticated in practice, but we check explicitly to keep this interceptor reusable.
+     *  - Non-GET methods are passed through untouched.
+     */
     @Provides
     @Singleton
     fun provideCacheControlInterceptor(): Interceptor = Interceptor { chain ->
-        val response: Response = chain.proceed(chain.request())
-        if (chain.request().method == "GET" && response.isSuccessful) {
-            response.newBuilder()
-                .header("Cache-Control", "public, max-age=$CACHE_MAX_AGE_SECONDS")
-                .build()
-        } else {
-            response
+        val request = chain.request()
+        val response: Response = chain.proceed(request)
+
+        if (request.method != "GET" || !response.isSuccessful) {
+            return@Interceptor response
         }
+
+        val existing = response.header("Cache-Control").orEmpty().lowercase()
+        if (
+            existing.contains("no-store") ||
+            existing.contains("no-cache") ||
+            existing.contains("private")
+        ) {
+            return@Interceptor response
+        }
+
+        val isAuthenticated = request.header(AuthHeaders.STORE_KEY) != null ||
+            request.header("Authorization") != null
+        val directive = if (isAuthenticated) {
+            "private, max-age=$CACHE_MAX_AGE_SECONDS"
+        } else {
+            "max-age=$CACHE_MAX_AGE_SECONDS"
+        }
+
+        response.newBuilder()
+            .header("Cache-Control", directive)
+            .build()
     }
 
     @Provides

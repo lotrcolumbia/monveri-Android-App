@@ -91,26 +91,31 @@ private val DarkColors = darkColorScheme(
 )
 
 /**
- * App-wide theme wrapper. Wraps Material 3 with the Monveri brand palette + status colors.
+ * App-wide theme wrapper + accessor for status colors. Call `MonveriTheme { content }` to wrap
+ * a composition; read `MonveriTheme.statusColors.success` inside it for the status palette.
+ *
+ * `operator fun invoke` lets call sites use the object's name as a function, avoiding the
+ * top-level fun/object name collision that came up in code review.
  */
-@Composable
-fun MonveriTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit,
-) {
-    val colorScheme = if (darkTheme) DarkColors else LightColors
-    val statusColors = if (darkTheme) DarkStatusColors else LightStatusColors
-    CompositionLocalProvider(LocalMonveriStatusColors provides statusColors) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = MonveriTypography,
-            content = content,
-        )
-    }
-}
-
-/** Convenience accessor mirroring `MaterialTheme.colorScheme` for status colors. */
 object MonveriTheme {
+
+    @Composable
+    operator fun invoke(
+        darkTheme: Boolean = isSystemInDarkTheme(),
+        content: @Composable () -> Unit,
+    ) {
+        val colorScheme = if (darkTheme) DarkColors else LightColors
+        val statusColors = if (darkTheme) DarkStatusColors else LightStatusColors
+        CompositionLocalProvider(LocalMonveriStatusColors provides statusColors) {
+            MaterialTheme(
+                colorScheme = colorScheme,
+                typography = MonveriTypography,
+                content = content,
+            )
+        }
+    }
+
+    /** Status palette (success/warning/danger/info). Mirrors `MaterialTheme.colorScheme`. */
     val statusColors: MonveriStatusColors
         @Composable
         @ReadOnlyComposable

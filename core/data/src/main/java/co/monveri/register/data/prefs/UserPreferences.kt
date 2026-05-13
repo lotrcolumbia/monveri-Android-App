@@ -5,11 +5,14 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,12 +32,19 @@ class UserPreferences @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
 
-    val themeMode: Flow<ThemeMode> = context.userPreferencesStore.data.map { prefs ->
+    // DataStore guidance: wrap `.data` with `.catch` so disk IO errors surface as empty
+    // preferences instead of terminating the flow. Non-IO exceptions still propagate.
+    private val safeData: Flow<Preferences> = context.userPreferencesStore.data
+        .catch { e ->
+            if (e is IOException) emit(emptyPreferences()) else throw e
+        }
+
+    val themeMode: Flow<ThemeMode> = safeData.map { prefs ->
         prefs[KEY_THEME_MODE]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
             ?: ThemeMode.System
     }
 
-    val analyticsOptIn: Flow<Boolean> = context.userPreferencesStore.data.map { prefs ->
+    val analyticsOptIn: Flow<Boolean> = safeData.map { prefs ->
         prefs[KEY_ANALYTICS_OPT_IN] ?: false
     }
 
