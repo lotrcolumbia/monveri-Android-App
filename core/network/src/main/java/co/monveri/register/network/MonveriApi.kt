@@ -2,15 +2,25 @@ package co.monveri.register.network
 
 import co.monveri.register.model.EmployeeLoginResponse
 import co.monveri.register.model.KeyValidation
+import co.monveri.register.network.dto.ApiEnvelope
+import co.monveri.register.network.dto.BarcodeMatchDto
+import co.monveri.register.network.dto.CatalogSyncDto
+import co.monveri.register.network.dto.CategoryDto
+import co.monveri.register.network.dto.CustomerSearchDto
+import co.monveri.register.network.dto.ProductSearchDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.Query
 import retrofit2.http.Url
 
 /**
- * Retrofit interface targeting `/api/register/`. Phase 1 only exposes the two auth endpoints;
- * later phases bolt on catalog, customers, payments etc.
+ * Retrofit interface targeting `/api/register/`. Phase 1 added the two auth endpoints; Phase 3
+ * adds catalog (sync/search/barcode/categories) and customer search.
+ *
+ * Every endpoint runs against the paired store host via [HostSwitchInterceptor]; the
+ * [AuthInterceptor] attaches `X-Store-Key` (and `X-Employee-Id` once a cashier is signed in).
  */
 interface MonveriApi {
 
@@ -32,6 +42,43 @@ interface MonveriApi {
     suspend fun employeeLogin(
         @Body body: EmployeeLoginRequest,
     ): EmployeeLoginResponse
+
+    /**
+     * Full catalog sync — products, variants, and barcode relationships. Phase 9 will pass
+     * `since` for incremental sync; Phase 3 always fetches the full snapshot.
+     */
+    @GET("products/sync.php")
+    suspend fun catalogSync(
+        @Query("since") since: String? = null,
+    ): ApiEnvelope<CatalogSyncDto>
+
+    /** Live keyword search across product name / SKU / UPC. Backend clamps `limit` to [1, 100]. */
+    @GET("products/search.php")
+    suspend fun searchProducts(
+        @Query("q") query: String,
+        @Query("limit") limit: Int = DEFAULT_SEARCH_LIMIT,
+    ): ApiEnvelope<ProductSearchDto>
+
+    /** Resolve a scanned barcode/UPC/SKU to a product, variant, or multi-pack relationship. */
+    @GET("products/barcode.php")
+    suspend fun barcodeLookup(
+        @Query("code") code: String,
+    ): ApiEnvelope<BarcodeMatchDto>
+
+    /** Flat list of categories (with parent ids) for the catalog filter dropdown. */
+    @GET("config/categories.php")
+    suspend fun categories(): ApiEnvelope<List<CategoryDto>>
+
+    /** Customer + loyalty lookup. `q` matches name / phone / email / loyalty card. */
+    @GET("customers/search.php")
+    suspend fun searchCustomers(
+        @Query("q") query: String,
+        @Query("limit") limit: Int = DEFAULT_SEARCH_LIMIT,
+    ): ApiEnvelope<CustomerSearchDto>
+
+    companion object {
+        const val DEFAULT_SEARCH_LIMIT: Int = 25
+    }
 }
 
 @kotlinx.serialization.Serializable

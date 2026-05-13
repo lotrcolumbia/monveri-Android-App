@@ -73,6 +73,10 @@ object NetworkModule {
      * Constraints honoured:
      *  - If the server already returned `no-store`, `no-cache`, or `private`, leave it alone —
      *    the server's directive wins.
+     *  - Customer-PII endpoints (anything under `/customers/`) get `no-store` regardless of
+     *    auth state — phone, email, and loyalty card numbers are sensitive enough that we don't
+     *    want them sitting on disk for 60 seconds in OkHttp's cache. Cashier search results
+     *    are cheap to refetch.
      *  - Authenticated requests (those carrying `X-Store-Key`) get a `private` cache directive
      *    so shared/intermediary caches never store the response. Every request from this app is
      *    authenticated in practice, but we check explicitly to keep this interceptor reusable.
@@ -99,10 +103,11 @@ object NetworkModule {
 
         val isAuthenticated = request.header(AuthHeaders.STORE_KEY) != null ||
             request.header("Authorization") != null
-        val directive = if (isAuthenticated) {
-            "private, max-age=$CACHE_MAX_AGE_SECONDS"
-        } else {
-            "max-age=$CACHE_MAX_AGE_SECONDS"
+        val isPiiEndpoint = request.url.encodedPath.contains("/customers/")
+        val directive = when {
+            isPiiEndpoint -> "no-store"
+            isAuthenticated -> "private, max-age=$CACHE_MAX_AGE_SECONDS"
+            else -> "max-age=$CACHE_MAX_AGE_SECONDS"
         }
 
         response.newBuilder()
