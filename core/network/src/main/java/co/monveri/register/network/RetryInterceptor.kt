@@ -37,6 +37,9 @@ class RetryInterceptor @Inject constructor() : Interceptor {
                 return response
             }
             lastResponse = response
+            // Close the body now so a thrown sleepBackoff (e.g. InterruptedException) can't
+            // leak the socket. `close()` is idempotent — the top-of-loop close above is a no-op.
+            response.close()
             sleepBackoff(attempt)
         }
 

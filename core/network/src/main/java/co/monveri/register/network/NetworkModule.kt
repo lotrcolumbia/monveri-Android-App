@@ -54,9 +54,12 @@ object NetworkModule {
     fun provideLoggingInterceptor(@DebugBuild isDebug: Boolean): HttpLoggingInterceptor =
         HttpLoggingInterceptor().apply {
             level = if (isDebug) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
-            // Never log auth header values — they're the entire access credential.
+            // Never log auth header values — they're the entire access credential. We don't
+            // currently emit `Authorization`, but redacting it defensively means a future
+            // bearer-flow can't accidentally leak tokens through logcat.
             redactHeader(AuthHeaders.STORE_KEY)
             redactHeader(AuthHeaders.EMPLOYEE_ID)
+            redactHeader("Authorization")
         }
 
     @Provides
