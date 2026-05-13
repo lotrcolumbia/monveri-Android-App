@@ -3,8 +3,8 @@ package co.monveri.register.feature.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -14,8 +14,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import co.monveri.register.design.components.MonveriButton
+import co.monveri.register.design.components.MonveriButtonVariant
+import co.monveri.register.design.tokens.MonveriSpacing
 
 /**
  * Stub home screen. Phase 3 replaces this with the real catalog/register surface.
@@ -25,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun HomePlaceholderScreen(
     onLoggedOut: () -> Unit,
+    onShowGallery: (() -> Unit)? = null,
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
     val session = remember { viewModel.currentSession() }
@@ -38,8 +41,8 @@ fun HomePlaceholderScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+                .padding(horizontal = MonveriSpacing.Xl, vertical = MonveriSpacing.Xl),
+            verticalArrangement = Arrangement.spacedBy(MonveriSpacing.Lg, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
@@ -54,16 +57,27 @@ fun HomePlaceholderScreen(
                 )
             }
             Text(
-                text = "Phase 1 complete — catalog & cart arrive in Phase 3.",
+                text = "Phase 2 foundation in place — catalog & cart arrive in Phase 3.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Button(
+            MonveriButton(
+                text = "Sign out",
                 onClick = {
                     viewModel.logout()
                     onLoggedOut()
                 },
-            ) { Text("Sign out") }
+                variant = MonveriButtonVariant.Secondary,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (onShowGallery != null) {
+                MonveriButton(
+                    text = "Component gallery (debug)",
+                    onClick = onShowGallery,
+                    variant = MonveriButtonVariant.Secondary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }

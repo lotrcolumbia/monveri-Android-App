@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import co.monveri.register.debug.addDebugRoutes
+import co.monveri.register.debug.createGalleryNavigator
 import co.monveri.register.feature.auth.AuthRoutes
 import co.monveri.register.feature.auth.HomePlaceholderScreen
 import co.monveri.register.feature.auth.PairingScreen
@@ -14,8 +16,8 @@ import co.monveri.register.feature.auth.SplashScreen
  * Top-level navigation graph. Splash routes based on persisted auth state; subsequent flows
  * push forward and pop back via standard Compose Navigation semantics.
  *
- * Later phases will introduce a `register` graph (catalog, cart, checkout) gated behind the
- * `auth/home` placeholder.
+ * Phase 2 adds the Component Gallery route under the debug variant only — see the
+ * `addDebugRoutes` / `createGalleryNavigator` indirection that resolves to no-ops in release.
  */
 @Composable
 fun MonveriNavGraph(navController: NavHostController) {
@@ -73,7 +75,10 @@ fun MonveriNavGraph(navController: NavHostController) {
                         popUpTo(AuthRoutes.HOME_PLACEHOLDER) { inclusive = true }
                     }
                 },
+                onShowGallery = createGalleryNavigator(navController),
             )
         }
+
+        addDebugRoutes(navController)
     }
 }

@@ -6,18 +6,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -32,9 +28,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import co.monveri.register.design.components.MonveriButton
+import co.monveri.register.design.components.MonveriTextField
+import co.monveri.register.design.tokens.MonveriSpacing
 
 /**
  * Manual pairing form: user pastes store URL + API key from the back office, taps Pair.
@@ -64,9 +62,9 @@ fun PairingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 24.dp)
+                .padding(horizontal = MonveriSpacing.Xl, vertical = MonveriSpacing.Xl)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(MonveriSpacing.Lg),
         ) {
             Text(
                 text = "Enter the store URL and API key from your back office to bind this device.",
@@ -74,68 +72,48 @@ fun PairingScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            OutlinedTextField(
+            MonveriTextField(
                 value = state.baseUrl,
                 onValueChange = viewModel::onPairingBaseUrlChanged,
-                label = { Text("Store URL") },
-                placeholder = { Text("https://store.example") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                label = "Store URL",
+                placeholder = "https://store.example",
+                keyboardType = KeyboardType.Uri,
                 enabled = !state.isLoading,
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            OutlinedTextField(
+            MonveriTextField(
                 value = state.apiKey,
                 onValueChange = viewModel::onPairingApiKeyChanged,
-                label = { Text("API key") },
-                placeholder = { Text("paste from register_api_keys table") },
-                singleLine = true,
+                label = "API key",
+                placeholder = "paste from register_api_keys table",
+                keyboardType = KeyboardType.Password,
                 enabled = !state.isLoading,
                 visualTransformation = if (apiKeyVisible) {
                     VisualTransformation.None
                 } else {
                     PasswordVisualTransformation()
                 },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 trailingIcon = {
                     IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
                         Icon(
-                            imageVector = if (apiKeyVisible) {
-                                Icons.Filled.VisibilityOff
-                            } else {
-                                Icons.Filled.Visibility
-                            },
+                            imageVector = if (apiKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                             contentDescription = if (apiKeyVisible) "Hide API key" else "Show API key",
                         )
                     }
                 },
+                errorMessage = state.errorMessage,
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            state.errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            Button(
+            MonveriButton(
+                text = if (state.isLoading) "Pairing…" else "Pair this device",
                 onClick = viewModel::pair,
-                enabled = !state.isLoading,
+                loading = state.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
-            ) {
-                if (state.isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.padding(end = 12.dp),
-                        strokeWidth = 2.dp,
-                    )
-                }
-                Text(if (state.isLoading) "Pairing…" else "Pair this device")
-            }
+                    .padding(top = MonveriSpacing.Sm),
+            )
 
             Text(
                 text = "QR-code scan is coming in Phase 3.",
