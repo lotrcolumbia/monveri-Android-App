@@ -67,7 +67,10 @@ dependencies {
     implementation(project(":core:design"))
     implementation(project(":core:network"))
     implementation(project(":core:data"))
+    implementation(project(":core:pricing"))
     implementation(project(":feature:auth"))
+    implementation(project(":feature:catalog"))
+    implementation(project(":feature:cart"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

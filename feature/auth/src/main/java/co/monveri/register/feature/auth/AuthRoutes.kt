@@ -8,5 +8,4 @@ object AuthRoutes {
     const val SPLASH = "auth/splash"
     const val PAIRING = "auth/pairing"
     const val PIN = "auth/pin"
-    const val HOME_PLACEHOLDER = "auth/home"
 }
