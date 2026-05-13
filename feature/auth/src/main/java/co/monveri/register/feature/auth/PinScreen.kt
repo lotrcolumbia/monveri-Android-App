@@ -16,10 +16,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +55,7 @@ fun PinScreen(
             TopAppBar(
                 title = { Text("Enter PIN") },
                 actions = {
-                    OutlinedButton(
+                    TextButton(
                         onClick = {
                             // Clear persisted pairing + session state BEFORE navigating so a
                             // subsequent cold start can't route back to PIN against the old key.

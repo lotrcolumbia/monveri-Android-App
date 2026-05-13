@@ -3,10 +3,10 @@ package co.monveri.register.feature.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.monveri.register.data.AuthRepository
-import co.monveri.register.model.AuthFailure
 import co.monveri.register.model.AuthState
 import co.monveri.register.model.Employee
 import co.monveri.register.model.UserSession
+import co.monveri.register.network.NetworkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +20,8 @@ import javax.inject.Inject
  * Splash observes [authState] to route; Pairing calls [pair]; PIN calls [login]; Home calls
  * [logout]. UI events not modeled here (text input, dialog visibility) live in screen-local
  * `remember` state.
+ *
+ * Phase 2: branches on [NetworkResult] from the repository — no thrown exceptions.
  */
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -52,11 +54,11 @@ class AuthViewModel @Inject constructor(
         }
         _pairing.value = snapshot.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
-            try {
-                val result = authRepository.pair(snapshot.baseUrl, snapshot.apiKey)
-                _pairing.value = PairingUiState(pairedStoreName = result.storeName)
-            } catch (e: AuthFailure) {
-                _pairing.value = snapshot.copy(isLoading = false, errorMessage = e.message)
+            when (val result = authRepository.pair(snapshot.baseUrl, snapshot.apiKey)) {
+                is NetworkResult.Success ->
+                    _pairing.value = PairingUiState(pairedStoreName = result.data.storeName)
+                is NetworkResult.Failure ->
+                    _pairing.value = snapshot.copy(isLoading = false, errorMessage = result.error.message)
             }
         }
     }
@@ -84,11 +86,11 @@ class AuthViewModel @Inject constructor(
         val snapshot = _login.value
         _login.value = snapshot.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
-            try {
-                val employee = authRepository.login(snapshot.pin)
-                _login.value = LoginUiState(employee = employee)
-            } catch (e: AuthFailure) {
-                _login.value = LoginUiState(errorMessage = e.message ?: "Sign-in failed")
+            when (val result = authRepository.login(snapshot.pin)) {
+                is NetworkResult.Success ->
+                    _login.value = LoginUiState(employee = result.data)
+                is NetworkResult.Failure ->
+                    _login.value = LoginUiState(errorMessage = result.error.message)
             }
         }
     }

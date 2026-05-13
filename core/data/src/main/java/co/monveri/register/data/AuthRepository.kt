@@ -1,33 +1,35 @@
 package co.monveri.register.data
 
-import co.monveri.register.model.ApiErrorBody
-import co.monveri.register.model.AuthFailure
 import co.monveri.register.model.AuthState
 import co.monveri.register.model.Employee
 import co.monveri.register.model.KeyValidation
 import co.monveri.register.model.UserSession
-import co.monveri.register.network.MonveriApi
 import co.monveri.register.network.EmployeeLoginRequest
+import co.monveri.register.network.MonveriApi
+import co.monveri.register.network.NetworkError
+import co.monveri.register.network.NetworkErrorMapper
+import co.monveri.register.network.NetworkResult
+import co.monveri.register.network.runCatchingNetwork
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
-import retrofit2.HttpException
-import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Single entry-point for everything auth-shaped: pairing, employee PIN login, logout, and
- * the reactive `AuthState` the navigation graph observes.
+ * the reactive [AuthState] the navigation graph observes.
  *
- * Backed by [SecurePrefs] for durable state and [MonveriApi] for the two backend calls.
+ * Phase 2 contract: every network-touching call returns [NetworkResult] — repositories never
+ * throw. Callers branch on Success / Failure at the ViewModel.
  */
 @Singleton
 class AuthRepository @Inject constructor(
     private val api: MonveriApi,
     private val prefs: SecurePrefs,
     private val json: Json,
+    private val errorMapper: NetworkErrorMapper,
 ) {
 
     private val _state = MutableStateFlow(currentState())
@@ -46,55 +48,62 @@ class AuthRepository @Inject constructor(
 
     /**
      * Pair the device with a store. Validates the user-entered URL + API key against
-     * `validate-key.php`; on success persists everything needed for future requests.
-     *
-     * @throws AuthFailure.InvalidKey on HTTP 401
-     * @throws AuthFailure.Network on connection failure
-     * @throws AuthFailure.Server on any other non-2xx
+     * `validate-key.php`. On success persists pairing state and returns the normalized response;
+     * on failure returns the typed [NetworkError].
      */
-    suspend fun pair(rawBaseUrl: String, apiKey: String): KeyValidation {
+    suspend fun pair(rawBaseUrl: String, apiKey: String): NetworkResult<KeyValidation> {
         val normalized = normalizeBaseUrl(rawBaseUrl)
         val validateUrl = normalized + "auth/validate-key.php"
 
-        val response = runCatchingNetwork {
+        return when (val response = runCatchingNetwork(errorMapper) {
             api.validateKey(url = validateUrl, storeKey = apiKey)
+        }) {
+            is NetworkResult.Failure -> response
+            is NetworkResult.Success -> {
+                val body = response.data
+                if (!body.success) {
+                    NetworkResult.Failure(NetworkError.Unauthorized("Invalid or inactive API key"))
+                } else {
+                    val resolvedStoreName = body.storeName ?: "Monveri Store"
+                    prefs.storeApiKey = apiKey
+                    prefs.storeBaseUrl = normalized
+                    prefs.storeName = resolvedStoreName
+                    prefs.storeCode = body.storeCode
+                    refreshState()
+                    NetworkResult.Success(body.copy(storeName = resolvedStoreName))
+                }
+            }
         }
-
-        if (!response.success) {
-            throw AuthFailure.InvalidKey("Invalid or inactive API key")
-        }
-
-        val resolvedStoreName = response.storeName ?: "Monveri Store"
-        prefs.storeApiKey = apiKey
-        prefs.storeBaseUrl = normalized
-        prefs.storeName = resolvedStoreName
-        prefs.storeCode = response.storeCode
-        refreshState()
-        return response.copy(storeName = resolvedStoreName)
     }
 
     /**
-     * Submit a PIN. On success persists the employee record and returns it; on failure throws.
+     * Submit a PIN. On success persists the employee record and returns it; on failure returns
+     * a typed [NetworkError] (typically [NetworkError.Unauthorized] for an invalid PIN).
      */
-    suspend fun login(pin: String): Employee {
-        val response = runCatchingNetwork {
+    suspend fun login(pin: String): NetworkResult<Employee> {
+        return when (val response = runCatchingNetwork(errorMapper) {
             api.employeeLogin(EmployeeLoginRequest(pin = pin))
+        }) {
+            is NetworkResult.Failure -> response
+            is NetworkResult.Success -> {
+                val body = response.data
+                val employee = body.data
+                if (!body.success || employee == null) {
+                    NetworkResult.Failure(NetworkError.Unauthorized(body.message ?: "Invalid PIN"))
+                } else {
+                    prefs.employeeId = employee.id
+                    prefs.employeeName = employee.name
+                    prefs.employeeUsername = employee.username
+                    prefs.employeeLevel = employee.level
+                    prefs.permissionsJson = json.encodeToString(
+                        kotlinx.serialization.serializer<Map<String, Boolean>>(),
+                        employee.permissions,
+                    )
+                    refreshState()
+                    NetworkResult.Success(employee)
+                }
+            }
         }
-        val employee = response.data
-        if (!response.success || employee == null) {
-            throw AuthFailure.InvalidPin(response.message ?: "Invalid PIN")
-        }
-
-        prefs.employeeId = employee.id
-        prefs.employeeName = employee.name
-        prefs.employeeUsername = employee.username
-        prefs.employeeLevel = employee.level
-        prefs.permissionsJson = json.encodeToString(
-            kotlinx.serialization.serializer<Map<String, Boolean>>(),
-            employee.permissions,
-        )
-        refreshState()
-        return employee
     }
 
     /** Sign out the employee but keep the store pairing intact. */
@@ -151,33 +160,5 @@ class AuthRepository @Inject constructor(
         } else {
             "$trimmed/api/register/"
         }
-    }
-
-    private suspend fun <T> runCatchingNetwork(block: suspend () -> T): T {
-        return try {
-            block()
-        } catch (e: HttpException) {
-            val errorMessage = parseErrorMessage(e)
-            when (e.code()) {
-                UNAUTHORIZED -> throw AuthFailure.InvalidKey(errorMessage)
-                in CLIENT_ERROR_RANGE -> throw AuthFailure.InvalidKey(errorMessage)
-                else -> throw AuthFailure.Server(errorMessage)
-            }
-        } catch (e: IOException) {
-            throw AuthFailure.Network(e.message ?: "Network unavailable")
-        }
-    }
-
-    private fun parseErrorMessage(e: HttpException): String {
-        val raw = e.response()?.errorBody()?.string().orEmpty()
-        if (raw.isBlank()) return e.message()
-        return runCatching {
-            json.decodeFromString(ApiErrorBody.serializer(), raw).message
-        }.getOrNull() ?: e.message()
-    }
-
-    private companion object {
-        const val UNAUTHORIZED = 401
-        val CLIENT_ERROR_RANGE = 400..499
     }
 }

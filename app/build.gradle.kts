@@ -42,6 +42,8 @@ android {
 
     buildFeatures {
         compose = true
+        // Debug variants expose a Component Gallery debug route — gated on BuildConfig.DEBUG.
+        buildConfig = true
     }
 
     compileOptions {
@@ -77,6 +79,8 @@ dependencies {
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
+    // Component Gallery (debug variant) and other later screens consume extended icons.
+    implementation(libs.compose.material.icons.extended)
     debugImplementation(libs.compose.ui.tooling)
 
     implementation(libs.hilt.android)

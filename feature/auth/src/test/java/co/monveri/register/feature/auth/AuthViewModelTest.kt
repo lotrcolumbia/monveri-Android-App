@@ -2,10 +2,11 @@ package co.monveri.register.feature.auth
 
 import app.cash.turbine.test
 import co.monveri.register.data.AuthRepository
-import co.monveri.register.model.AuthFailure
 import co.monveri.register.model.AuthState
 import co.monveri.register.model.Employee
 import co.monveri.register.model.KeyValidation
+import co.monveri.register.network.NetworkError
+import co.monveri.register.network.NetworkResult
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -47,8 +48,9 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun `pair surfaces invalid-key failure as error message`() = runTest(dispatcher) {
-        coEvery { repository.pair(any(), any()) } throws AuthFailure.InvalidKey("Invalid or inactive API key")
+    fun `pair surfaces NetworkResult Failure as error message`() = runTest(dispatcher) {
+        coEvery { repository.pair(any(), any()) } returns
+            NetworkResult.Failure(NetworkError.Unauthorized("Invalid or inactive API key"))
         val vm = AuthViewModel(repository)
         vm.onPairingBaseUrlChanged("https://store.example")
         vm.onPairingApiKeyChanged("bad-key")
@@ -66,10 +68,12 @@ class AuthViewModelTest {
 
     @Test
     fun `pair success captures store name`() = runTest(dispatcher) {
-        coEvery { repository.pair(any(), any()) } returns KeyValidation(
-            success = true,
-            storeName = "Carolina Thread Place",
-            storeCode = "CTP",
+        coEvery { repository.pair(any(), any()) } returns NetworkResult.Success(
+            KeyValidation(
+                success = true,
+                storeName = "Carolina Thread Place",
+                storeCode = "CTP",
+            ),
         )
         val vm = AuthViewModel(repository)
         vm.onPairingBaseUrlChanged("https://store.example")
@@ -100,12 +104,14 @@ class AuthViewModelTest {
 
     @Test
     fun `four pin digits auto-submit`() = runTest(dispatcher) {
-        coEvery { repository.login("1234") } returns Employee(
-            id = 42,
-            name = "Will Jeffcoat-McLeod",
-            username = "wjeffcoatmcleod",
-            level = 1,
-            status = "active",
+        coEvery { repository.login("1234") } returns NetworkResult.Success(
+            Employee(
+                id = 42,
+                name = "Will Jeffcoat-McLeod",
+                username = "wjeffcoatmcleod",
+                level = 1,
+                status = "active",
+            ),
         )
         val vm = AuthViewModel(repository)
 
@@ -121,7 +127,8 @@ class AuthViewModelTest {
 
     @Test
     fun `invalid pin surfaces error and clears submission`() = runTest(dispatcher) {
-        coEvery { repository.login(any()) } throws AuthFailure.InvalidPin("Invalid PIN")
+        coEvery { repository.login(any()) } returns
+            NetworkResult.Failure(NetworkError.Unauthorized("Invalid PIN"))
         val vm = AuthViewModel(repository)
 
         listOf('9', '9', '9', '9').forEach(vm::onPinDigit)
@@ -131,6 +138,22 @@ class AuthViewModelTest {
             val state = expectMostRecentItem()
             assertNull(state.employee)
             assertEquals("Invalid PIN", state.errorMessage)
+        }
+    }
+
+    @Test
+    fun `offline pin surfaces network error message`() = runTest(dispatcher) {
+        coEvery { repository.login(any()) } returns
+            NetworkResult.Failure(NetworkError.Offline())
+        val vm = AuthViewModel(repository)
+
+        listOf('1', '2', '3', '4').forEach(vm::onPinDigit)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.login.test {
+            val state = expectMostRecentItem()
+            assertNull(state.employee)
+            assertEquals("No internet connection", state.errorMessage)
         }
     }
 

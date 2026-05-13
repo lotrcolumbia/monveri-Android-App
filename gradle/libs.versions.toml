@@ -24,8 +24,10 @@ okhttp = "4.12.0"
 kotlinx-serialization = "1.7.3"
 retrofit-kotlinx-serialization = "1.0.0"
 
-# Persistence (Phase 1 uses EncryptedSharedPreferences only; Room comes in Phase 2)
+# Persistence
 androidx-security-crypto = "1.1.0-alpha06"
+androidx-room = "2.6.1"
+androidx-datastore = "1.1.1"
 
 # Coroutines
 kotlinx-coroutines = "1.9.0"
@@ -70,6 +72,10 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 
 # Persistence
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "androidx-security-crypto" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "androidx-room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "androidx-room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "androidx-room" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "androidx-datastore" }
 
 # Coroutines
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }

@@ -14,9 +14,12 @@
 bin/
 gen/
 out/
-release/
 build/
 **/build/
+# Top-level `release/` build outputs only — do NOT match `app/src/release/` source sets,
+# which the release-variant DebugRoutes stub lives in.
+/release/
+!**/src/release/
 
 # Gradle files
 .gradle/
