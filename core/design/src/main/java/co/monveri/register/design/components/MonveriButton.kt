@@ -20,8 +20,9 @@ import co.monveri.register.design.MonveriTheme
 enum class MonveriButtonVariant { Primary, Secondary, Destructive }
 
 /**
- * Brand-styled button. Three variants + an optional `loading` state that swaps the label for a
- * progress indicator and disables interaction. Sized for touch (min 48dp via Material defaults).
+ * Brand-styled button. Three variants + an optional `loading` state that shows a small
+ * progress indicator alongside the label and disables interaction while in flight. Touch
+ * target stays at the Material default (min 48dp).
  */
 @Composable
 fun MonveriButton(

@@ -8,6 +8,8 @@ import co.monveri.register.network.dto.CategoryDto
 import co.monveri.register.network.dto.ProductDto
 import co.monveri.register.network.dto.ProductVariantDto
 import co.monveri.register.network.runCatchingNetwork
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,11 +40,17 @@ class CatalogRepositoryImpl @Inject constructor(
 
     override fun current(): CatalogSnapshot = state.value
 
-    override suspend fun sync(): NetworkResult<CatalogSnapshot> {
-        val syncResult = runCatchingNetwork(errorMapper) { api.catalogSync() }
-        val categoryResult = runCatchingNetwork(errorMapper) { api.categories() }
+    override suspend fun sync(): NetworkResult<CatalogSnapshot> = coroutineScope {
+        // Fan out catalog + categories in parallel — they're independent reads on the same store
+        // and gating them sequentially doubled cold-start latency for no reason. `coroutineScope`
+        // is enough (both calls return NetworkResult and never throw, so no failure cancellation
+        // semantics to worry about — `supervisorScope` would be the wrong tool here).
+        val syncDeferred = async { runCatchingNetwork(errorMapper) { api.catalogSync() } }
+        val categoryDeferred = async { runCatchingNetwork(errorMapper) { api.categories() } }
+        val syncResult = syncDeferred.await()
+        val categoryResult = categoryDeferred.await()
 
-        return when {
+        when {
             syncResult is NetworkResult.Failure -> syncResult
             categoryResult is NetworkResult.Failure -> categoryResult
             else -> {
