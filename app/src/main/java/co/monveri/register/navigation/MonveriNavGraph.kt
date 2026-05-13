@@ -2,22 +2,34 @@ package co.monveri.register.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import co.monveri.register.debug.addDebugRoutes
-import co.monveri.register.debug.createGalleryNavigator
 import co.monveri.register.feature.auth.AuthRoutes
-import co.monveri.register.feature.auth.HomePlaceholderScreen
 import co.monveri.register.feature.auth.PairingScreen
 import co.monveri.register.feature.auth.PinScreen
 import co.monveri.register.feature.auth.SplashScreen
+import co.monveri.register.feature.cart.CartRoutes
+import co.monveri.register.feature.cart.CartScreen
+import co.monveri.register.feature.cart.CustomerLookupScreen
+import co.monveri.register.feature.catalog.BarcodeScannerScreen
+import co.monveri.register.feature.catalog.CatalogListScreen
+import co.monveri.register.feature.catalog.CatalogRoutes
+import co.monveri.register.feature.catalog.ProductDetailScreen
 
 /**
- * Top-level navigation graph. Splash routes based on persisted auth state; subsequent flows
- * push forward and pop back via standard Compose Navigation semantics.
+ * Top-level navigation graph. Splash routes based on persisted auth state; subsequent flows push
+ * forward and pop back via standard Compose Navigation semantics.
  *
- * Phase 2 adds the Component Gallery route under the debug variant only — see the
- * `addDebugRoutes` / `createGalleryNavigator` indirection that resolves to no-ops in release.
+ * Phase 3: the post-auth Home destination is now the catalog list. From there:
+ *  - Tap a card → product detail
+ *  - Top-bar scan icon → barcode scanner route → handoff back via SavedStateHandle
+ *  - "View cart" FAB → cart screen → customer lookup or checkout
+ *
+ * Scanner result is plumbed back through the previous entry's SavedStateHandle so the catalog
+ * VM (which owns the cart-add logic) sees a single barcode string and reacts.
  */
 @Composable
 fun MonveriNavGraph(navController: NavHostController) {
@@ -36,7 +48,7 @@ fun MonveriNavGraph(navController: NavHostController) {
                     }
                 },
                 onAuthenticated = {
-                    navController.navigate(AuthRoutes.HOME_PLACEHOLDER) {
+                    navController.navigate(CatalogRoutes.LIST) {
                         popUpTo(AuthRoutes.SPLASH) { inclusive = true }
                     }
                 },
@@ -56,7 +68,7 @@ fun MonveriNavGraph(navController: NavHostController) {
         composable(AuthRoutes.PIN) {
             PinScreen(
                 onAuthenticated = {
-                    navController.navigate(AuthRoutes.HOME_PLACEHOLDER) {
+                    navController.navigate(CatalogRoutes.LIST) {
                         popUpTo(AuthRoutes.PIN) { inclusive = true }
                     }
                 },
@@ -68,17 +80,69 @@ fun MonveriNavGraph(navController: NavHostController) {
             )
         }
 
-        composable(AuthRoutes.HOME_PLACEHOLDER) {
-            HomePlaceholderScreen(
-                onLoggedOut = {
-                    navController.navigate(AuthRoutes.PIN) {
-                        popUpTo(AuthRoutes.HOME_PLACEHOLDER) { inclusive = true }
-                    }
+        composable(CatalogRoutes.LIST) { backStackEntry ->
+            // Scanner returns its result by setting "scanResult" on this entry's SavedStateHandle.
+            // We hand it to the screen as a one-shot parameter; the screen calls back when consumed
+            // so a config change doesn't replay the scan.
+            val savedStateHandle = backStackEntry.savedStateHandle
+            val scannedCode = savedStateHandle.get<String>(SCAN_RESULT_KEY)
+            CatalogListScreen(
+                onProductSelected = { id ->
+                    navController.navigate(CatalogRoutes.detailFor(id))
                 },
-                onShowGallery = createGalleryNavigator(navController),
+                onScanRequested = {
+                    navController.navigate(SCANNER_ROUTE)
+                },
+                onCartRequested = {
+                    navController.navigate(CartRoutes.CART)
+                },
+                pendingScannedBarcode = scannedCode,
+                onScannedBarcodeConsumed = {
+                    savedStateHandle.remove<String>(SCAN_RESULT_KEY)
+                },
             )
+        }
+
+        composable(
+            route = CatalogRoutes.DETAIL,
+            arguments = listOf(navArgument(CatalogRoutes.ARG_PRODUCT_ID) { type = NavType.StringType }),
+        ) {
+            ProductDetailScreen(
+                onBack = { navController.popBackStack() },
+                onAddedToCart = { navController.popBackStack() },
+            )
+        }
+
+        composable(SCANNER_ROUTE) {
+            BarcodeScannerScreen(
+                onScanResult = { code ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set(SCAN_RESULT_KEY, code)
+                    navController.popBackStack()
+                },
+                onCancel = { navController.popBackStack() },
+            )
+        }
+
+        composable(CartRoutes.CART) {
+            CartScreen(
+                onBack = { navController.popBackStack() },
+                onLookUpCustomer = { navController.navigate(CartRoutes.CUSTOMER_LOOKUP) },
+                onCheckout = {
+                    // Phase 6 wires this to the payment routes. For Phase 3 the back stack returns
+                    // to the catalog — the cart persists in memory.
+                    navController.popBackStack(CatalogRoutes.LIST, inclusive = false)
+                },
+            )
+        }
+
+        composable(CartRoutes.CUSTOMER_LOOKUP) {
+            CustomerLookupScreen(onDismiss = { navController.popBackStack() })
         }
 
         addDebugRoutes(navController)
     }
 }
+
+/** Scanner uses its own route name (single full-screen sheet) — kept inline so :app stays consistent. */
+private const val SCANNER_ROUTE = "scanner"
+private const val SCAN_RESULT_KEY = "scanResult"

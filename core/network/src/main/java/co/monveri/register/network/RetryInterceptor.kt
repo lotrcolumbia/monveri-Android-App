@@ -49,7 +49,10 @@ class RetryInterceptor @Inject constructor() : Interceptor {
     }
 
     private fun sleepBackoff(attempt: Int) {
-        val base = BACKOFF_BASE_MS shl (attempt - 1)
+        // Documented schedule is ~250 ms / ~1 s / ~4 s — that's a 4× growth factor, not 2×.
+        // `shl (attempt - 1)` doubled instead of quadrupling. Shift by 2 per attempt to multiply
+        // by 4: attempt 1 → 250, 2 → 1000, 3 → 4000.
+        val base = BACKOFF_BASE_MS shl (BACKOFF_SHIFT_PER_ATTEMPT * (attempt - 1))
         val jitter = Random.nextLong(JITTER_MS)
         try {
             Thread.sleep(base + jitter)
@@ -62,6 +65,7 @@ class RetryInterceptor @Inject constructor() : Interceptor {
     private companion object {
         const val MAX_ATTEMPTS = 4
         const val BACKOFF_BASE_MS = 250L
+        const val BACKOFF_SHIFT_PER_ATTEMPT = 2 // shift-by-2 == multiply-by-4
         const val JITTER_MS = 150L
         val SERVER_ERROR_RANGE = 500..599
         val RETRYABLE_METHODS = setOf("GET", "HEAD", "OPTIONS")

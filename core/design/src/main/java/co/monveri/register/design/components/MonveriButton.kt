@@ -8,7 +8,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,8 +20,9 @@ import co.monveri.register.design.MonveriTheme
 enum class MonveriButtonVariant { Primary, Secondary, Destructive }
 
 /**
- * Brand-styled button. Three variants + an optional `loading` state that swaps the label for a
- * progress indicator and disables interaction. Sized for touch (min 48dp via Material defaults).
+ * Brand-styled button. Three variants + an optional `loading` state that shows a small
+ * progress indicator alongside the label and disables interaction while in flight. Touch
+ * target stays at the Material default (min 48dp).
  */
 @Composable
 fun MonveriButton(
@@ -63,12 +64,15 @@ private fun ButtonContent(text: String, loading: Boolean) {
         horizontalArrangement = Arrangement.Center,
     ) {
         if (loading) {
+            // Inherit the button's content color so the spinner stays visible across all
+            // variants — Secondary (OutlinedButton) renders text in `primary`, not `onPrimary`,
+            // and a hardcoded `onPrimary` spinner becomes invisible-on-white in that variant.
             CircularProgressIndicator(
                 modifier = Modifier
                     .padding(end = 8.dp)
                     .size(18.dp),
                 strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = LocalContentColor.current,
             )
         }
         Text(text = text)

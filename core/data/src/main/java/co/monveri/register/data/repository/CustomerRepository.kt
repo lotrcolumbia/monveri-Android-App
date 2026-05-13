@@ -1,29 +1,41 @@
 package co.monveri.register.data.repository
 
 import co.monveri.register.network.NetworkResult
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
- * Customer + loyalty lookup. Phase 2 stub; Phase 3 wires this against
- * `customers/search.php` + the loyalty AJAX endpoints.
+ * Customer + loyalty lookup. v1 supports lookup only — back-office handles CRUD.
  */
 interface CustomerRepository {
-    /** Lookup by phone, email, or loyalty card. Returns null when no match. */
-    suspend fun lookup(query: String): NetworkResult<CustomerSummary?>
+
+    /** Server-side search across name / phone / email / loyalty card. */
+    suspend fun search(query: String, limit: Int = DEFAULT_SEARCH_LIMIT): NetworkResult<List<Customer>>
+
+    companion object {
+        const val DEFAULT_SEARCH_LIMIT: Int = 25
+    }
 }
 
-data class CustomerSummary(
+/**
+ * Domain model for a register-facing customer. The display name falls back through the obvious
+ * candidates so we always have a string for the cart chip.
+ */
+data class Customer(
     val id: Long,
-    val name: String,
+    val firstName: String?,
+    val lastName: String?,
+    val company: String?,
     val phone: String?,
     val email: String?,
-    val loyaltyCard: String?,
-    val pointsBalance: Long,
-)
-
-@Singleton
-class CustomerRepositoryImpl @Inject constructor() : CustomerRepository {
-    override suspend fun lookup(query: String): NetworkResult<CustomerSummary?> =
-        NetworkResult.Success(null)
+    val loyaltyCardNumber: String?,
+    val currentPoints: Int,
+    val tierName: String?,
+) {
+    val displayName: String
+        get() = listOfNotNull(firstName, lastName)
+            .joinToString(" ")
+            .ifBlank { company }
+            ?.ifBlank { null }
+            ?: email?.ifBlank { null }
+            ?: phone?.ifBlank { null }
+            ?: "Customer #$id"
 }
