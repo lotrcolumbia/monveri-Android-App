@@ -56,17 +56,23 @@ class CatalogRepositoryImpl @Inject constructor(
             else -> {
                 val syncBody = (syncResult as NetworkResult.Success).data
                 val categoryBody = (categoryResult as NetworkResult.Success).data
-                if (!syncBody.success || syncBody.data == null) {
+                // Capture `data` into locals before use — Kotlin won't smart-cast a public
+                // property from another module across a null check (`ApiEnvelope` lives in
+                // `:core:network`), so `syncBody.data.products` would otherwise be a compile
+                // error even after the null guard above.
+                val syncPayload = syncBody.data
+                val categoryPayload = categoryBody.data
+                if (!syncBody.success || syncPayload == null) {
                     NetworkResult.Failure(NetworkError.Server(MAX_HTTP_CODE, syncBody.message ?: "Catalog sync failed"))
-                } else if (!categoryBody.success || categoryBody.data == null) {
+                } else if (!categoryBody.success || categoryPayload == null) {
                     NetworkResult.Failure(
                         NetworkError.Server(MAX_HTTP_CODE, categoryBody.message ?: "Category sync failed"),
                     )
                 } else {
                     val snapshot = CatalogSnapshot(
-                        products = syncBody.data.products.map { it.toDomain() },
-                        categories = categoryBody.data.map { it.toDomain() },
-                        variantsByProductId = syncBody.data.variants
+                        products = syncPayload.products.map { it.toDomain() },
+                        categories = categoryPayload.map { it.toDomain() },
+                        variantsByProductId = syncPayload.variants
                             .map { it.toDomain() }
                             .groupBy { it.productId },
                         lastSyncEpochMillis = System.currentTimeMillis(),
