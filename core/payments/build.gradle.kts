@@ -38,9 +38,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
 
-    // Stripe Terminal — core SDK + Bluetooth transport for the M2 reader.
+    // Stripe Terminal SDK — Bluetooth M2 reader classes (BluetoothConnectionConfiguration,
+    // BluetoothReaderListener, DiscoveryMethod.BluetoothScan) live inside the core artifact;
+    // there's no separate stripeterminal-bluetooth coordinate published to Maven.
     implementation(libs.stripeterminal.core)
-    implementation(libs.stripeterminal.bluetooth)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
