@@ -6,6 +6,8 @@ import co.monveri.register.network.dto.ApiEnvelope
 import co.monveri.register.network.dto.BarcodeMatchDto
 import co.monveri.register.network.dto.CatalogSyncDto
 import co.monveri.register.network.dto.CategoryDto
+import co.monveri.register.network.dto.ConnectionTokenDto
+import co.monveri.register.network.dto.ConnectionTokenRequest
 import co.monveri.register.network.dto.CustomerSearchDto
 import co.monveri.register.network.dto.ProductSearchDto
 import retrofit2.http.Body
@@ -75,6 +77,16 @@ interface MonveriApi {
         @Query("q") query: String,
         @Query("limit") limit: Int = DEFAULT_SEARCH_LIMIT,
     ): ApiEnvelope<CustomerSearchDto>
+
+    /**
+     * Mints a short-lived Stripe Terminal connection token. Body's `location_id` is optional —
+     * when omitted the backend uses the store's `stripe_terminal_location_id` setting. The token
+     * is consumed by the Stripe SDK during reader handshake; never stored client-side.
+     */
+    @POST("payments/connection-token.php")
+    suspend fun stripeConnectionToken(
+        @Body body: ConnectionTokenRequest = ConnectionTokenRequest(),
+    ): ApiEnvelope<ConnectionTokenDto>
 
     companion object {
         const val DEFAULT_SEARCH_LIMIT: Int = 25

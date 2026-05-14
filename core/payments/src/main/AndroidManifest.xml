@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Bluetooth permissions for talking to the Stripe Reader M2.
+      `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT` replace the legacy `BLUETOOTH` / `BLUETOOTH_ADMIN`
+      pair on API 31+. The `neverForLocation` flag tells Android we're not deriving the user's
+      location from BLE scan results — Stripe Terminal does not need that capability.
+
+      `ACCESS_FINE_LOCATION` is only required on API 30 and earlier (`maxSdkVersion="30"` keeps
+      it out of the merged manifest on newer devices). API 31+ uses the new permission split
+      with `neverForLocation`.
+
+      Foreground service permissions support the connected-device service type required by
+      Android 14+ for long-running Bluetooth peripherals.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!--
+      Legacy permissions for API 29–30 — BLUETOOTH_SCAN/CONNECT didn't exist yet so the
+      older runtime needs BLUETOOTH + BLUETOOTH_ADMIN. Capped at maxSdkVersion=30 so API 31+
+      installs don't request them.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
+    <application>
+        <service
+            android:name=".service.StripeReaderService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+    </application>
+</manifest>

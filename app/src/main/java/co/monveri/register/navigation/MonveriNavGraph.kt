@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import co.monveri.register.debug.addDebugRoutes
+import co.monveri.register.debug.createStripeTestHarnessNavigator
 import co.monveri.register.feature.auth.AuthRoutes
 import co.monveri.register.feature.auth.PairingScreen
 import co.monveri.register.feature.auth.PinScreen
@@ -18,6 +19,8 @@ import co.monveri.register.feature.catalog.BarcodeScannerScreen
 import co.monveri.register.feature.catalog.CatalogListScreen
 import co.monveri.register.feature.catalog.CatalogRoutes
 import co.monveri.register.feature.catalog.ProductDetailScreen
+import co.monveri.register.feature.settings.SettingsRoutes
+import co.monveri.register.feature.settings.reader.ReaderDiscoveryScreen
 
 /**
  * Top-level navigation graph. Splash routes based on persisted auth state; subsequent flows push
@@ -96,6 +99,9 @@ fun MonveriNavGraph(navController: NavHostController) {
                 onCartRequested = {
                     navController.navigate(CartRoutes.CART)
                 },
+                onSettingsRequested = {
+                    navController.navigate(SettingsRoutes.READER)
+                },
                 pendingScannedBarcode = scannedCode,
                 onScannedBarcodeConsumed = {
                     savedStateHandle.remove<String>(SCAN_RESULT_KEY)
@@ -137,6 +143,13 @@ fun MonveriNavGraph(navController: NavHostController) {
 
         composable(CartRoutes.CUSTOMER_LOOKUP) {
             CustomerLookupScreen(onDismiss = { navController.popBackStack() })
+        }
+
+        composable(SettingsRoutes.READER) {
+            ReaderDiscoveryScreen(
+                onBack = { navController.popBackStack() },
+                onDebugTestHarness = createStripeTestHarnessNavigator(navController),
+            )
         }
 
         addDebugRoutes(navController)

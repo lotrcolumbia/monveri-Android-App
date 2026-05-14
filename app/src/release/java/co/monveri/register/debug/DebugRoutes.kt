@@ -14,3 +14,6 @@ fun NavGraphBuilder.addDebugRoutes(navController: NavController) {
 
 @Suppress("UNUSED_PARAMETER")
 fun createGalleryNavigator(navController: NavController): (() -> Unit)? = null
+
+@Suppress("UNUSED_PARAMETER")
+fun createStripeTestHarnessNavigator(navController: NavController): (() -> Unit)? = null
