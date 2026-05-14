@@ -40,7 +40,9 @@ dependencies {
 
     // Stripe Terminal SDK — single combined artifact at v3.x includes the Bluetooth M2
     // transport. Phase 5 will add stripeterminal-localmobile alongside this for Tap to Pay.
-    implementation(libs.stripeterminal)
+    // `api` because TerminalManager exposes Stripe types on its public surface (TerminalListener
+    // supertype, ConnectionStatus/PaymentStatus/Reader StateFlows) — consumers need them resolved.
+    api(libs.stripeterminal)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
