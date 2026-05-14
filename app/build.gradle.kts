@@ -76,7 +76,7 @@ dependencies {
 
     // Stripe Terminal types appear in the debug Test Harness ViewModel state — pin the SDK
     // here so the debug variant compiles even though :app's main code never calls Stripe.
-    debugImplementation(libs.stripeterminal.core)
+    debugImplementation(libs.stripeterminal)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

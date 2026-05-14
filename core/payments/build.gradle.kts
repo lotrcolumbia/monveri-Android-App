@@ -38,9 +38,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
 
-    // Stripe Terminal — core SDK + Bluetooth transport for the M2 reader.
-    implementation(libs.stripeterminal.core)
-    implementation(libs.stripeterminal.bluetooth)
+    // Stripe Terminal SDK — single combined artifact at v3.x includes the Bluetooth M2
+    // transport. Phase 5 will add stripeterminal-localmobile alongside this for Tap to Pay.
+    implementation(libs.stripeterminal)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

@@ -53,7 +53,7 @@ dependencies {
 
     // Stripe Reader SDK types appear in ViewModel state (Reader, ConnectionStatus); keep here so
     // settings UI can render reader names without Compose-side reflection.
-    implementation(libs.stripeterminal.core)
+    implementation(libs.stripeterminal)
 
     // Bluetooth + Location runtime permission requests live in this module's screen.
     implementation(libs.accompanist.permissions)

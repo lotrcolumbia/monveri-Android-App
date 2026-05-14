@@ -112,9 +112,10 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "androidx-camera" }
 mlkit-barcode = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkit-barcode" }
 
-# Stripe Terminal (Bluetooth M2 transport)
-stripeterminal-core = { group = "com.stripe", name = "stripeterminal-core", version.ref = "stripeterminal" }
-stripeterminal-bluetooth = { group = "com.stripe", name = "stripeterminal-bluetooth", version.ref = "stripeterminal" }
+# Stripe Terminal — at v3.x the Bluetooth-capable SDK ships as a single combined artifact
+# (the -core / -bluetooth / -localmobile module split happens in v5.x). Phase 5 will add
+# the Tap to Pay path alongside this when it switches to the modular -core + -localmobile setup.
+stripeterminal = { group = "com.stripe", name = "stripeterminal", version.ref = "stripeterminal" }
 
 # Accompanist permissions (Compose runtime permission helpers)
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist-permissions" }
