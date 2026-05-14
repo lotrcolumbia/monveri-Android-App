@@ -2,6 +2,7 @@ package co.monveri.register
 
 import android.app.Application
 import co.monveri.register.payments.TerminalManager
+import com.stripe.stripeterminal.TerminalApplicationDelegate
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -12,6 +13,10 @@ import javax.inject.Inject
  * without waiting for the cashier to open the catalog. [TerminalManager.ensureInitialized] is
  * idempotent — if Hilt re-creates the Application (e.g. process death) the second call is a
  * cheap no-op.
+ *
+ * The Stripe SDK requires [TerminalApplicationDelegate.onCreate] to be called from the
+ * Application's onCreate so it can hook the activity lifecycle (used to suspend Bluetooth scans
+ * when the UI backgrounds). Skipping it causes runtime crashes on the first scan attempt.
  */
 @HiltAndroidApp
 class MonveriApp : Application() {
@@ -20,6 +25,7 @@ class MonveriApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        TerminalApplicationDelegate.onCreate(this)
         terminalManager.ensureInitialized()
     }
 }

@@ -1,13 +1,13 @@
 package co.monveri.register.payments
 
 import com.stripe.stripeterminal.Terminal
-import com.stripe.stripeterminal.external.callable.BluetoothReaderListener
 import com.stripe.stripeterminal.external.callable.Callback
+import com.stripe.stripeterminal.external.callable.Cancelable
 import com.stripe.stripeterminal.external.callable.DiscoveryListener
 import com.stripe.stripeterminal.external.callable.ReaderCallback
-import com.stripe.stripeterminal.external.models.BluetoothConnectionConfiguration
+import com.stripe.stripeterminal.external.callable.ReaderListener
+import com.stripe.stripeterminal.external.models.ConnectionConfiguration.BluetoothConnectionConfiguration
 import com.stripe.stripeterminal.external.models.DiscoveryConfiguration
-import com.stripe.stripeterminal.external.models.DiscoveryMethod
 import com.stripe.stripeterminal.external.models.Reader
 import com.stripe.stripeterminal.external.models.ReaderSoftwareUpdate
 import com.stripe.stripeterminal.external.models.TerminalException
@@ -26,8 +26,13 @@ import kotlin.coroutines.resumeWithException
  *  - [discoverReaders] — a Flow of "current nearby readers" lists. Cancelling the collector
  *    cancels the underlying SDK discovery via the returned [Cancelable].
  *  - [connect] — suspend wrapper around `connectBluetoothReader` so the caller can `await`
- *    the result. The minimal [BluetoothReaderListener] forwards firmware-update progress to
- *    the optional [updateListener] (cashier sees "Updating reader 47%" while it's working).
+ *    the result. The minimal [ReaderListener] forwards firmware-update progress to the
+ *    optional [updateListener] (cashier sees "Updating reader 47%" while it's working).
+ *
+ * v3.10.0 notes: `DiscoveryConfiguration` is a sealed class with nested concrete types; pick
+ * `BluetoothDiscoveryConfiguration`. `BluetoothConnectionConfiguration` is nested under
+ * `ConnectionConfiguration` and takes just the locationId — the reader listener is now a
+ * separate parameter to `connectBluetoothReader` rather than baked into the config.
  */
 @Singleton
 class ReaderDiscovery @Inject constructor(
@@ -37,16 +42,17 @@ class ReaderDiscovery @Inject constructor(
     /** Live nearby-reader list. Each emission replaces the previous one (Stripe's contract). */
     fun discoverReaders(timeoutSeconds: Int = DISCOVERY_TIMEOUT_SECONDS): Flow<List<Reader>> = callbackFlow {
         terminalManager.ensureInitialized()
-        val config = DiscoveryConfiguration(
-            timeoutSeconds,
-            DiscoveryMethod.BLUETOOTH_SCAN,
+        val config = DiscoveryConfiguration.BluetoothDiscoveryConfiguration(
+            timeout = timeoutSeconds,
             // Simulated readers gated to the debug Test Harness — never enabled here.
-            false,
+            isSimulated = false,
         )
-        val listener = DiscoveryListener { readers ->
-            // `trySend` is non-blocking; if the collector is slow we drop intermediate frames
-            // (acceptable — we only care about the latest list).
-            trySend(readers)
+        val listener = object : DiscoveryListener {
+            override fun onUpdateDiscoveredReaders(readers: List<Reader>) {
+                // `trySend` is non-blocking; if the collector is slow we drop intermediate frames
+                // (acceptable — we only care about the latest list).
+                trySend(readers)
+            }
         }
         val cancelable = Terminal.getInstance().discoverReaders(
             config,
@@ -77,37 +83,37 @@ class ReaderDiscovery @Inject constructor(
         updateListener: ReaderUpdateListener? = null,
     ): Reader = suspendCancellableCoroutine { continuation ->
         terminalManager.ensureInitialized()
-        val config = BluetoothConnectionConfiguration(
-            locationId,
-            // Auto-reconnect on transient disconnect — the SDK retries with backoff for ~1 minute.
-            true,
-            object : BluetoothReaderListener {
-                override fun onStartInstallingUpdate(
-                    update: ReaderSoftwareUpdate,
-                    cancelable: com.stripe.stripeterminal.external.callable.Cancelable?,
-                ) {
-                    updateListener?.onStart(update.estimatedUpdateTime?.toString().orEmpty())
-                }
+        // v3.10.0: only locationId in the config; the listener moved to a connect() parameter.
+        val config = BluetoothConnectionConfiguration(locationId)
+        val readerListener = object : ReaderListener {
+            override fun onStartInstallingUpdate(
+                update: ReaderSoftwareUpdate,
+                cancelable: Cancelable?,
+            ) {
+                // ReaderSoftwareUpdate.estimatedUpdateTime was removed in v3.x — just fire
+                // the start callback without an estimate; the progress hook drives UI updates.
+                updateListener?.onStart()
+            }
 
-                override fun onReportReaderSoftwareUpdateProgress(progress: Float) {
-                    updateListener?.onProgress(progress)
-                }
+            override fun onReportReaderSoftwareUpdateProgress(progress: Float) {
+                updateListener?.onProgress(progress)
+            }
 
-                override fun onFinishInstallingUpdate(
-                    update: ReaderSoftwareUpdate?,
-                    e: TerminalException?,
-                ) {
-                    if (e != null) {
-                        updateListener?.onFailure(e.message ?: "Update failed")
-                    } else {
-                        updateListener?.onSuccess()
-                    }
+            override fun onFinishInstallingUpdate(
+                update: ReaderSoftwareUpdate?,
+                e: TerminalException?,
+            ) {
+                if (e != null) {
+                    updateListener?.onFailure(e.message ?: "Update failed")
+                } else {
+                    updateListener?.onSuccess()
                 }
-            },
-        )
+            }
+        }
         Terminal.getInstance().connectBluetoothReader(
             reader,
             config,
+            readerListener,
             object : ReaderCallback {
                 override fun onSuccess(reader: Reader) {
                     if (continuation.isActive) continuation.resume(reader)
@@ -145,7 +151,7 @@ class ReaderDiscovery @Inject constructor(
 
 /** Optional callback bag for surfacing reader firmware updates while [ReaderDiscovery.connect] runs. */
 interface ReaderUpdateListener {
-    fun onStart(estimatedDuration: String)
+    fun onStart()
     fun onProgress(progress: Float)
     fun onSuccess()
     fun onFailure(message: String)
