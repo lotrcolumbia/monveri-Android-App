@@ -165,8 +165,10 @@ private fun DiagnosticsPanel(readiness: TapToPayReadiness, onRecheck: () -> Unit
 private fun SignalRow(label: String, ok: Boolean, pending: Boolean = false) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         when {
+            // 24.dp matches the default Material icon size below so the label column
+            // doesn't shift horizontally between pending and resolved rows.
             pending -> CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(24.dp),
                 strokeWidth = 2.dp,
             )
             ok -> Icon(
@@ -286,16 +288,23 @@ private fun TapSurface(
  */
 @Composable
 private fun PulsingContactless(active: Boolean) {
-    val transition = rememberInfiniteTransition(label = "tap-pulse")
-    val scale by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (active) 1.18f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 850),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "tap-pulse-scale",
-    )
+    // Only spin up the infinite-transition clock while collecting. When inactive the glyph is a
+    // static 1f — no per-frame animation work for a surface that's just sitting idle.
+    val scale = if (active) {
+        val transition = rememberInfiniteTransition(label = "tap-pulse")
+        val animated by transition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.18f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 850),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "tap-pulse-scale",
+        )
+        animated
+    } else {
+        1f
+    }
     Box(
         modifier = Modifier
             .size(140.dp)

@@ -12,6 +12,7 @@ import co.monveri.register.payments.TerminalManager
 import com.stripe.stripeterminal.external.models.ConnectionStatus
 import com.stripe.stripeterminal.external.models.TerminalException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -117,15 +118,30 @@ class TapToPayViewModel @Inject constructor(
         lastResult.value = null
         errorMessage.value = null
         viewModelScope.launch {
-            val result = paymentSession.charge(amountCents = TEST_CHARGE_CENTS)
-            isCharging.value = false
-            lastResult.value = when (result) {
-                is PaymentSessionState.Succeeded -> TestChargeResult(
-                    "Approved · ${result.paymentIntentId}",
-                    isError = false,
+            try {
+                val result = paymentSession.charge(amountCents = TEST_CHARGE_CENTS)
+                lastResult.value = when (result) {
+                    is PaymentSessionState.Succeeded -> TestChargeResult(
+                        "Approved · ${result.paymentIntentId}",
+                        isError = false,
+                    )
+                    is PaymentSessionState.Failed -> TestChargeResult(result.message, isError = true)
+                    else -> null
+                }
+            } catch (e: CancellationException) {
+                // Cooperate with structured concurrency — never swallow cancellation. `finally`
+                // still resets isCharging so a cancelled charge doesn't leave the spinner stuck.
+                throw e
+            } catch (e: Exception) {
+                // charge() handles SDK failures internally; this catches what it can't —
+                // e.g. ensureInitialized() throwing before its own try block. Without this the
+                // coroutine dies silently with isCharging stuck true and no feedback.
+                lastResult.value = TestChargeResult(
+                    e.message ?: "Payment failed",
+                    isError = true,
                 )
-                is PaymentSessionState.Failed -> TestChargeResult(result.message, isError = true)
-                else -> null
+            } finally {
+                isCharging.value = false
             }
         }
     }
