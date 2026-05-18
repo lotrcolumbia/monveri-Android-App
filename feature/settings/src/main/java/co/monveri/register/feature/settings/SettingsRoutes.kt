@@ -6,4 +6,7 @@ package co.monveri.register.feature.settings
  */
 object SettingsRoutes {
     const val READER = "settings/reader"
+
+    /** Phase 5 — Tap to Pay on Android (phone-as-reader). Reached from the Card reader screen. */
+    const val TAP_TO_PAY = "settings/tap-to-pay"
 }

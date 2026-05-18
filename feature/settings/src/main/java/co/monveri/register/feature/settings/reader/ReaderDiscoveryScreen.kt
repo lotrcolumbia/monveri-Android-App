@@ -62,6 +62,7 @@ import com.stripe.stripeterminal.external.models.Reader
 @Composable
 fun ReaderDiscoveryScreen(
     onBack: () -> Unit,
+    onTapToPay: (() -> Unit)? = null,
     onDebugTestHarness: (() -> Unit)? = null,
     viewModel: ReaderDiscoveryViewModel = hiltViewModel(),
 ) {
@@ -123,8 +124,20 @@ fun ReaderDiscoveryScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.weight(1f))
+
+            onTapToPay?.let { navigate ->
+                MonveriButton(
+                    text = "Tap to Pay on this phone",
+                    onClick = navigate,
+                    variant = MonveriButtonVariant.Secondary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = MonveriSpacing.Sm),
+                )
+            }
+
             if (onDebugTestHarness != null) {
-                Spacer(modifier = Modifier.weight(1f))
                 MonveriButton(
                     text = "Stripe Test Harness (debug)",
                     onClick = onDebugTestHarness,
