@@ -90,27 +90,32 @@ fun TapToPayScreen(
                 .padding(horizontal = MonveriSpacing.Lg),
             verticalArrangement = Arrangement.spacedBy(MonveriSpacing.Md),
         ) {
-            when {
-                !state.readiness.isReady -> DiagnosticsPanel(
-                    readiness = state.readiness,
-                    onRecheck = viewModel::refreshReadiness,
-                )
+            // Weighted so the panels (SetupPanel/TapSurface fill their height) take the
+            // remaining space while the error banner below stays on-screen instead of being
+            // pushed past the bottom edge.
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    !state.readiness.isReady -> DiagnosticsPanel(
+                        readiness = state.readiness,
+                        onRecheck = viewModel::refreshReadiness,
+                    )
 
-                state.connectionStatus != ConnectionStatus.CONNECTED -> SetupPanel(
-                    isConnecting = state.isConnecting,
-                    canConnect = state.canConnect,
-                    onConnect = viewModel::connect,
-                )
+                    state.connectionStatus != ConnectionStatus.CONNECTED -> SetupPanel(
+                        isConnecting = state.isConnecting,
+                        canConnect = state.canConnect,
+                        onConnect = viewModel::connect,
+                    )
 
-                else -> TapSurface(
-                    statusLine = state.statusLine,
-                    isCharging = state.isCharging,
-                    canCharge = state.canCharge,
-                    lastResult = state.lastResult,
-                    onCharge = viewModel::charge,
-                    onCancel = viewModel::cancel,
-                    onDisconnect = viewModel::disconnect,
-                )
+                    else -> TapSurface(
+                        statusLine = state.statusLine,
+                        isCharging = state.isCharging,
+                        canCharge = state.canCharge,
+                        lastResult = state.lastResult,
+                        onCharge = viewModel::charge,
+                        onCancel = viewModel::cancel,
+                        onDisconnect = viewModel::disconnect,
+                    )
+                }
             }
 
             state.errorMessage?.let { message ->
