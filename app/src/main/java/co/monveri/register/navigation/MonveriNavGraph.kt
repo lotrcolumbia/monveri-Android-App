@@ -21,6 +21,7 @@ import co.monveri.register.feature.catalog.CatalogRoutes
 import co.monveri.register.feature.catalog.ProductDetailScreen
 import co.monveri.register.feature.settings.SettingsRoutes
 import co.monveri.register.feature.settings.reader.ReaderDiscoveryScreen
+import co.monveri.register.feature.settings.taptopay.TapToPayScreen
 
 /**
  * Top-level navigation graph. Splash routes based on persisted auth state; subsequent flows push
@@ -148,8 +149,13 @@ fun MonveriNavGraph(navController: NavHostController) {
         composable(SettingsRoutes.READER) {
             ReaderDiscoveryScreen(
                 onBack = { navController.popBackStack() },
+                onTapToPay = { navController.navigate(SettingsRoutes.TAP_TO_PAY) },
                 onDebugTestHarness = createStripeTestHarnessNavigator(navController),
             )
+        }
+
+        composable(SettingsRoutes.TAP_TO_PAY) {
+            TapToPayScreen(onBack = { navController.popBackStack() })
         }
 
         addDebugRoutes(navController)
