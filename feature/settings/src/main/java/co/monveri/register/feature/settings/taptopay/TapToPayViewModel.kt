@@ -119,13 +119,15 @@ class TapToPayViewModel @Inject constructor(
         errorMessage.value = null
         viewModelScope.launch {
             try {
-                val result = paymentSession.charge(amountCents = TEST_CHARGE_CENTS)
+                val result = paymentSession.begin(amountCents = TEST_CHARGE_CENTS)
                 lastResult.value = when (result) {
                     is PaymentSessionState.Succeeded -> TestChargeResult(
                         "Approved · ${result.paymentIntentId}",
                         isError = false,
                     )
                     is PaymentSessionState.Failed -> TestChargeResult(result.message, isError = true)
+                    is PaymentSessionState.Declined -> TestChargeResult(result.message, isError = true)
+                    PaymentSessionState.Canceled -> null
                     else -> null
                 }
             } catch (e: CancellationException) {
@@ -207,5 +209,7 @@ private fun PaymentSessionState.toLine(): String = when (this) {
     PaymentSessionState.AwaitingCard -> "Hold card to the back of the phone"
     PaymentSessionState.Processing -> "Reading card…"
     is PaymentSessionState.Succeeded -> "Approved"
-    is PaymentSessionState.Failed -> "Declined"
+    is PaymentSessionState.Declined -> "Declined"
+    is PaymentSessionState.Failed -> "Failed"
+    PaymentSessionState.Canceled -> "Canceled"
 }

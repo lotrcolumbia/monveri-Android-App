@@ -27,10 +27,10 @@ import kotlin.coroutines.resumeWithException
  * and discovery semantics differ enough between Bluetooth M2 and Tap to Pay that one branchy class
  * would be harder to follow than two focused ones. Both lean on [TerminalManager] for init/status.
  *
- * **SDK note (v3.10.0):** Stripe renamed the v2-era *LocalMobile* surface to *Tap to Pay*. The
- * plan document predates that rename and refers to `LocalMobileReader`; the concrete v3.10.0 types
- * are `TapToPayDiscoveryConfiguration` / `TapToPayConnectionConfiguration` / `connectTapToPayReader`,
- * used here. Same adaptation Phase 4 had to make for the Bluetooth surface.
+ * **SDK note (v4.x):** Stripe renamed the v2-era *LocalMobile* surface to *Tap to Pay* in v4.0.0,
+ * so the concrete types are `TapToPayDiscoveryConfiguration` / `TapToPayConnectionConfiguration` /
+ * `TapToPayReaderListener`. v4 also consolidated every `connect*Reader()` into a single
+ * `Terminal.connectReader()` (the connection config's concrete subtype selects the transport).
  */
 @Singleton
 class TapToPayService @Inject constructor(
@@ -74,7 +74,11 @@ class TapToPayService @Inject constructor(
      * holding discovery open would keep the SDK in scan mode unnecessarily.
      */
     private suspend fun discoverLocalReader(): Reader = suspendCancellableCoroutine { continuation ->
-        val config = DiscoveryConfiguration.TapToPayDiscoveryConfiguration(isSimulated = false)
+        // isSimulated = BuildConfig.DEBUG: the production Tap to Pay reader refuses to run inside
+        // any debuggable APK (an explicit Stripe SDK error, not a device limitation) — a release
+        // build always asks for the real reader. See DeviceCapability.fullReadiness for the
+        // matching readiness-check flag.
+        val config = DiscoveryConfiguration.TapToPayDiscoveryConfiguration(isSimulated = BuildConfig.DEBUG)
         var cancelable: Cancelable? = null
         val listener = object : DiscoveryListener {
             override fun onUpdateDiscoveredReaders(readers: List<Reader>) {
@@ -124,7 +128,7 @@ class TapToPayService @Inject constructor(
                     }
                 },
             )
-            Terminal.getInstance().connectTapToPayReader(
+            Terminal.getInstance().connectReader(
                 reader,
                 config,
                 object : ReaderCallback {
@@ -138,10 +142,4 @@ class TapToPayService @Inject constructor(
                 },
             )
         }
-}
-
-/** Stripe SDK callbacks require non-null Callback impls even when the caller doesn't care. */
-private object NoopCallback : Callback {
-    override fun onSuccess() = Unit
-    override fun onFailure(e: TerminalException) = Unit
 }

@@ -29,6 +29,9 @@ interface CatalogRepository {
     /** Resolve a scanned barcode against the backend. Returns null when the backend 404s. */
     suspend fun lookupBarcode(code: String): NetworkResult<BarcodeMatch?>
 
+    /** Admin-configured Quick tab buttons for this register. Not cached — fetched fresh per call. */
+    suspend fun quickButtons(): NetworkResult<List<QuickButton>>
+
     companion object {
         const val DEFAULT_SEARCH_LIMIT: Int = 25
     }
@@ -89,4 +92,19 @@ data class BarcodeMatch(
     val product: Product,
     val variant: ProductVariant?,
     val qtyCount: Int,
+)
+
+enum class QuickButtonType { PRODUCT, CATEGORY }
+
+/**
+ * An admin-configured Quick tab tile. [color] is the literal Bootstrap class string from the
+ * admin UI (e.g. `btn-success`) — the UI maps it to a color, never inferring one from [type].
+ */
+data class QuickButton(
+    val id: Long,
+    val label: String,
+    val type: QuickButtonType,
+    val sku: String?,
+    val categoryId: String?,
+    val color: String?,
 )

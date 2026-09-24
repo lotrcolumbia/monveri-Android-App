@@ -1,6 +1,5 @@
 package co.monveri.register.design
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -101,7 +100,12 @@ object MonveriTheme {
 
     @Composable
     operator fun invoke(
-        darkTheme: Boolean = isSystemInDarkTheme(),
+        // iOS is light-only — no dark mode support there at all — so following the Android
+        // device's system dark-mode setting made the two platforms look like different products
+        // depending on the cashier's phone settings, and washed out the brand palette against a
+        // black background. Always light for now; a real dark theme is a deliberate future
+        // feature to design for, not something to fall into via a device setting.
+        darkTheme: Boolean = false,
         content: @Composable () -> Unit,
     ) {
         val colorScheme = if (darkTheme) DarkColors else LightColors

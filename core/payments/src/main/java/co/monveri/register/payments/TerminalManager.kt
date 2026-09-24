@@ -72,13 +72,10 @@ class TerminalManager @Inject constructor(
         }
     }
 
-    override fun onUnexpectedReaderDisconnect(reader: Reader) {
-        // The SDK has dropped the reader without a corresponding disconnect call from us.
-        // Surface the change immediately; auto-reconnect is handled at the UI layer (settings screen).
-        _connectedReader.value = null
-        _connectionStatus.value = ConnectionStatus.NOT_CONNECTED
-    }
-
+    // v4 removed TerminalListener.onUnexpectedReaderDisconnect — an unexpected drop now surfaces as
+    // an onConnectionStatusChange(NOT_CONNECTED) (handled below), and per-reader onDisconnect events
+    // live on the reader listeners passed into the connection configs. This handler already nulls
+    // the reader on NOT_CONNECTED, so disconnect state stays correct without the removed callback.
     override fun onConnectionStatusChange(status: ConnectionStatus) {
         _connectionStatus.value = status
         if (status == ConnectionStatus.NOT_CONNECTED) {

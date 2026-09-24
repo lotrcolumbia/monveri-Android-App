@@ -5,11 +5,16 @@
       Bluetooth permissions for talking to the Stripe Reader M2.
       `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT` replace the legacy `BLUETOOTH` / `BLUETOOTH_ADMIN`
       pair on API 31+. The `neverForLocation` flag tells Android we're not deriving the user's
-      location from BLE scan results — Stripe Terminal does not need that capability.
+      location from BLE scan results — that's an OS-level carve-out for the Bluetooth stack only.
 
-      `ACCESS_FINE_LOCATION` is only required on API 30 and earlier (`maxSdkVersion="30"` keeps
-      it out of the merged manifest on newer devices). API 31+ uses the new permission split
-      with `neverForLocation`.
+      `ACCESS_FINE_LOCATION` is required on EVERY Android version — not just API 30 and earlier.
+      This is a Stripe Terminal SDK requirement (it tags the payment location for fraud
+      prevention when discovering readers, Bluetooth M2 or Tap to Pay alike), independent of the
+      Bluetooth `neverForLocation` flag above. A previous `maxSdkVersion="30"` cap here made the
+      permission silently absent from the merged manifest on API 31+ devices — Android then
+      auto-denies any runtime request for an undeclared permission, so `discoverReaders()` failed
+      with "You must request location permissions before discovering readers" on every device
+      running API 31 or later, unconditionally.
 
       Foreground service permissions support the connected-device service type required by
       Android 14+ for long-running Bluetooth peripherals.
@@ -29,9 +34,7 @@
     <uses-permission
         android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION"
-        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
 

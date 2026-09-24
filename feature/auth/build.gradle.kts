@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "co.monveri.register.feature.auth"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 29
@@ -55,6 +55,17 @@ dependencies {
     ksp(libs.hilt.compiler)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    // Authenticated receipt-image thumbnails on the Expenses list/detail screens.
+    implementation(libs.coil.compose)
+
+    // QR pairing scanner — same CameraX + ML Kit stack as feature/catalog's product scanner,
+    // restricted to QR-only detection here.
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.mlkit.barcode)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

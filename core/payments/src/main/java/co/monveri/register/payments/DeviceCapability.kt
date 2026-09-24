@@ -63,24 +63,41 @@ class DeviceCapability @Inject constructor(
         if (!local.osVersionOk || !local.hasNfcHardware) {
             return local.copy(stripeSupported = false)
         }
-        val supported = runCatching {
+        // `ReaderSupportResult` carries the *reason* a device fails (a Throwable set by the SDK —
+        // e.g. an ATTESTATION_FAILURE for a non-GMS-certified build, an insecure-environment
+        // check, or a keystore capability gap) — surfacing `.message` turns "Stripe doesn't
+        // support this device" from a dead end into something the cashier (or Stripe support) can
+        // actually act on. Any SDK exception during the call itself is still treated as
+        // unsupported rather than crashing the diagnostics screen.
+        //
+        // `isSimulated = BuildConfig.DEBUG`: Stripe's production Tap to Pay reader flatly refuses
+        // to run inside any debuggable APK ("Debuggable applications are not supported... use a
+        // simulated version of the reader"), independent of every device-level signal above — a
+        // release build always asks for the real reader. See [TapToPayService] for the matching
+        // connect-time flag.
+        val result = runCatching {
             terminalManager.ensureInitialized()
             Terminal.getInstance().supportsReadersOfType(
-                deviceType = DeviceType.TAP_TO_PAY,
+                deviceType = DeviceType.TAP_TO_PAY_DEVICE,
                 discoveryConfiguration = DiscoveryConfiguration.TapToPayDiscoveryConfiguration(
-                    isSimulated = false,
+                    isSimulated = BuildConfig.DEBUG,
                 ),
-            ).isSupported
-        }.getOrDefault(false)
-        return local.copy(stripeSupported = supported)
+            )
+        }.getOrNull()
+        return local.copy(
+            stripeSupported = result?.isSupported ?: false,
+            unsupportedReason = result?.error?.message,
+            isSimulated = BuildConfig.DEBUG,
+        )
     }
 
     private companion object {
-        // Android 11. The plan raises the Tap to Pay floor to API 30 while the rest of the app
-        // stays at the API 29 minSdk — this constant is that per-feature floor, enforced in code
-        // rather than the manifest so a single APK still installs on API 29 devices (Tap to Pay
-        // simply stays hidden there).
-        const val MIN_TAP_TO_PAY_SDK: Int = Build.VERSION_CODES.R
+        // Android 13 — Stripe's current documented floor for Tap to Pay on Android
+        // (docs.stripe.com/terminal/payments/setup-reader/tap-to-pay?platform=android), which the
+        // docs themselves warn "can change due to updated compliance requirements". This is a
+        // per-feature floor enforced in code rather than the manifest so a single APK still
+        // installs on the API 29 minSdk (Tap to Pay simply stays hidden below API 33).
+        const val MIN_TAP_TO_PAY_SDK: Int = Build.VERSION_CODES.TIRAMISU
     }
 }
 
@@ -96,6 +113,16 @@ data class TapToPayReadiness(
     val hasNfcHardware: Boolean,
     val nfcEnabled: Boolean,
     val stripeSupported: Boolean?,
+    /** The SDK's own explanation when [stripeSupported] is `false` — null otherwise. */
+    val unsupportedReason: String? = null,
+    /**
+     * True whenever [stripeSupported] was checked against Stripe's *simulated* reader rather than
+     * the real one — always true in debug builds (see [DeviceCapability.fullReadiness]). A green
+     * "Stripe supports this device" in this state validates the app's own flow, not real hardware
+     * compatibility or a live card tap; the UI must say so rather than implying production
+     * readiness.
+     */
+    val isSimulated: Boolean = false,
 ) {
     /** True only when every signal is green — fail-closed on the unknown ([stripeSupported] null). */
     val isReady: Boolean

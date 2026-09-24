@@ -56,6 +56,8 @@ class ProductDetailViewModel @Inject constructor(
             name = product.name,
             variantLabel = variant?.displayLabel,
             sku = variant?.sku ?: product.sku,
+            upc = variant?.upc ?: product.upc,
+            unitOfSale = product.unitOfSale,
             unitPriceCents = variant?.priceCents ?: product.priceCents,
             quantity = current.quantity,
             isTaxable = product.isTaxable,

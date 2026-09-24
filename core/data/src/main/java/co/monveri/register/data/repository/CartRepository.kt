@@ -87,6 +87,8 @@ data class CartLine(
     val name: String,
     val variantLabel: String?,
     val sku: String?,
+    val upc: String? = null,
+    val unitOfSale: String = "piece",
     val unitPriceCents: Long,
     val quantity: Int,
     val isTaxable: Boolean,

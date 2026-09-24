@@ -1,5 +1,6 @@
 package co.monveri.register.feature.settings.taptopay
 
+import android.Manifest
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Contactless
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -48,6 +50,10 @@ import co.monveri.register.design.components.MonveriButton
 import co.monveri.register.design.components.MonveriButtonVariant
 import co.monveri.register.design.tokens.MonveriSpacing
 import co.monveri.register.payments.TapToPayReadiness
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.PermissionState
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 import com.stripe.stripeterminal.external.models.ConnectionStatus
 
 /**
@@ -63,13 +69,14 @@ import com.stripe.stripeterminal.external.models.ConnectionStatus
  * The tap surface deliberately reuses the shared `PaymentSession` state machine, so Phase 6 can
  * lift this surface into the checkout flow unchanged — only the amount source differs.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun TapToPayScreen(
     onBack: () -> Unit,
     viewModel: TapToPayViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val locationPermission = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
 
     Scaffold(
         topBar = {
@@ -90,11 +97,30 @@ fun TapToPayScreen(
                 .padding(horizontal = MonveriSpacing.Lg),
             verticalArrangement = Arrangement.spacedBy(MonveriSpacing.Md),
         ) {
+            if (state.readiness.isSimulated) {
+                Text(
+                    text = "Debug build — using Stripe's simulated reader. No real card taps.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = MonveriSpacing.Sm),
+                )
+            }
             // Weighted so the panels (SetupPanel/TapSurface fill their height) take the
             // remaining space while the error banner below stays on-screen instead of being
             // pushed past the bottom edge.
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when {
+                    // Stripe Terminal requires location permission to discover a reader — Tap to
+                    // Pay included, not just the Bluetooth M2 path — to tag where the payment
+                    // happened. Gate before even the readiness check: `supportsReadersOfType`
+                    // itself can fail with "You must request location permissions before
+                    // discovering readers" when it's missing.
+                    !locationPermission.status.isGranted -> LocationPermissionPanel(
+                        permission = locationPermission,
+                    )
+
                     !state.readiness.isReady -> DiagnosticsPanel(
                         readiness = state.readiness,
                         onRecheck = viewModel::refreshReadiness,
@@ -130,6 +156,20 @@ fun TapToPayScreen(
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
+@Composable
+private fun LocationPermissionPanel(permission: PermissionState) {
+    EmptyState(
+        modifier = Modifier.fillMaxWidth(),
+        icon = Icons.Filled.LocationOn,
+        title = "Location permission needed",
+        message = "Stripe requires location access to discover a reader — it tags where the " +
+            "payment happened, for fraud prevention. It's used only at the moment of discovery.",
+        actionLabel = "Grant access",
+        onAction = { permission.launchPermissionRequest() },
+    )
+}
+
 @Composable
 private fun DiagnosticsPanel(readiness: TapToPayReadiness, onRecheck: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(MonveriSpacing.Md)) {
@@ -141,7 +181,7 @@ private fun DiagnosticsPanel(readiness: TapToPayReadiness, onRecheck: () -> Unit
                 "Use the Stripe Reader M2 instead, or fix the items below.",
         )
         HorizontalDivider()
-        SignalRow("Android 11 or newer", readiness.osVersionOk)
+        SignalRow("Android 13 or newer", readiness.osVersionOk)
         SignalRow("NFC hardware present", readiness.hasNfcHardware)
         SignalRow(
             label = if (readiness.nfcEnabled) "NFC is on" else "NFC is off — turn it on in Settings",
@@ -156,6 +196,18 @@ private fun DiagnosticsPanel(readiness: TapToPayReadiness, onRecheck: () -> Unit
             ok = readiness.stripeSupported == true,
             pending = readiness.stripeSupported == null,
         )
+        // The SDK's own reason, when it gave one — e.g. an attestation failure or an insecure
+        // environment check. Blank/missing on some SDK versions or transient failures, in which
+        // case there's nothing more specific to show than the line above.
+        val unsupportedReason = readiness.unsupportedReason
+        if (readiness.stripeSupported == false && !unsupportedReason.isNullOrBlank()) {
+            Text(
+                text = unsupportedReason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = MonveriSpacing.Xl),
+            )
+        }
         Spacer(modifier = Modifier.height(MonveriSpacing.Sm))
         MonveriButton(
             text = "Re-check",

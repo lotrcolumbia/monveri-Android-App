@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "co.monveri.register.feature.cart"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 29
@@ -35,6 +35,8 @@ dependencies {
     implementation(project(":core:network"))
     implementation(project(":core:data"))
     implementation(project(":core:pricing"))
+    // Card-payment collection (Stripe Terminal) for the checkout flow's Card/Split tenders.
+    implementation(project(":core:payments"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

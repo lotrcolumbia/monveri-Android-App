@@ -66,11 +66,12 @@ class StripeTestHarnessViewModel @Inject constructor(
         isCharging.value = true
         lastResult.value = null
         viewModelScope.launch {
-            val result = paymentSession.charge(amountCents = TEST_CHARGE_CENTS)
+            val result = paymentSession.begin(amountCents = TEST_CHARGE_CENTS)
             isCharging.value = false
             lastResult.value = when (result) {
                 is PaymentSessionState.Succeeded -> "Approved · ${result.paymentIntentId}" to false
                 is PaymentSessionState.Failed -> result.message to true
+                is PaymentSessionState.Declined -> result.message to true
                 else -> null
             }
         }
@@ -82,8 +83,11 @@ class StripeTestHarnessViewModel @Inject constructor(
     }
 
     private fun handleTerminalState(state: PaymentSessionState) {
-        if (state is PaymentSessionState.Failed && lastResult.value == null) {
-            lastResult.value = state.message to true
+        if (lastResult.value != null) return
+        when (state) {
+            is PaymentSessionState.Failed -> lastResult.value = state.message to true
+            is PaymentSessionState.Declined -> lastResult.value = state.message to true
+            else -> Unit
         }
     }
 
@@ -99,7 +103,9 @@ private fun PaymentSessionState.toLine(): String = when (this) {
     PaymentSessionState.AwaitingCard -> "Tap or insert card on the reader"
     PaymentSessionState.Processing -> "Processing payment…"
     is PaymentSessionState.Succeeded -> "Approved"
+    is PaymentSessionState.Declined -> "Declined"
     is PaymentSessionState.Failed -> "Failed"
+    PaymentSessionState.Canceled -> "Canceled"
 }
 
 data class StripeTestHarnessUiState(

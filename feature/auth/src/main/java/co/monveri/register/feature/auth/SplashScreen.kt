@@ -26,6 +26,7 @@ import co.monveri.register.model.AuthState
 fun SplashScreen(
     onUnpaired: () -> Unit,
     onPairedNoSession: () -> Unit,
+    onNeedsRegisterOpen: () -> Unit,
     onAuthenticated: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -35,7 +36,9 @@ fun SplashScreen(
         when (state) {
             AuthState.Unpaired -> onUnpaired()
             AuthState.PairedNoSession -> onPairedNoSession()
-            AuthState.Authenticated -> onAuthenticated()
+            AuthState.Authenticated -> {
+                if (viewModel.needsRegisterOpen()) onNeedsRegisterOpen() else onAuthenticated()
+            }
         }
     }
 

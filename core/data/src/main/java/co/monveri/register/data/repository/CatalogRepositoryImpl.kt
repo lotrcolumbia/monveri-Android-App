@@ -7,6 +7,7 @@ import co.monveri.register.network.NetworkResult
 import co.monveri.register.network.dto.CategoryDto
 import co.monveri.register.network.dto.ProductDto
 import co.monveri.register.network.dto.ProductVariantDto
+import co.monveri.register.network.dto.QuickButtonDto
 import co.monveri.register.network.runCatchingNetwork
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -134,6 +135,24 @@ class CatalogRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun quickButtons(): NetworkResult<List<QuickButton>> {
+        val result = runCatchingNetwork(errorMapper) { api.quickButtons() }
+        return when (result) {
+            is NetworkResult.Failure -> result
+            is NetworkResult.Success -> {
+                val envelope = result.data
+                val payload = envelope.data
+                if (!envelope.success || payload == null) {
+                    NetworkResult.Failure(
+                        NetworkError.Server(MAX_HTTP_CODE, envelope.message ?: "Failed to load quick buttons"),
+                    )
+                } else {
+                    NetworkResult.Success(payload.mapNotNull { it.toDomain() })
+                }
+            }
+        }
+    }
+
     private companion object {
         const val MAX_SEARCH_LIMIT: Int = 100
         const val MAX_HTTP_CODE: Int = 500
@@ -171,6 +190,23 @@ private fun CategoryDto.toDomain(): Category = Category(
     name = name,
     parentId = parentId.takeUnless { it.isNullOrBlank() || it == "0" },
 )
+
+/** Drops rows with an unrecognized `button_type` — the backend only ever emits product/category. */
+private fun QuickButtonDto.toDomain(): QuickButton? {
+    val type = when (buttonType) {
+        "product" -> QuickButtonType.PRODUCT
+        "category" -> QuickButtonType.CATEGORY
+        else -> return null
+    }
+    return QuickButton(
+        id = id,
+        label = label,
+        type = type,
+        sku = sku,
+        categoryId = categoryId,
+        color = color,
+    )
+}
 
 /**
  * Single float-to-cents conversion site so rounding rules can't drift between callers. We mirror

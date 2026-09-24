@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "co.monveri.register.network"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 29

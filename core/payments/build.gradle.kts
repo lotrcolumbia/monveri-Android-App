@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "co.monveri.register.payments"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 29
@@ -39,10 +39,15 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     // Stripe Terminal SDK — single combined artifact at v3.x includes the Bluetooth M2
-    // transport. Phase 5 will add stripeterminal-localmobile alongside this for Tap to Pay.
-    // `api` because TerminalManager exposes Stripe types on its public surface (TerminalListener
-    // supertype, ConnectionStatus/PaymentStatus/Reader StateFlows) — consumers need them resolved.
+    // transport. `api` because TerminalManager exposes Stripe types on its public surface
+    // (TerminalListener supertype, ConnectionStatus/PaymentStatus/Reader StateFlows) — consumers
+    // need them resolved.
     api(libs.stripeterminal)
+    // Tap to Pay on Android (Phase 5) — separate add-on artifact carrying the on-device reader
+    // engine (the TapToPay* API classes themselves live in the core artifact above).
+    // `implementation`: used only inside TapToPayService/DeviceCapability, not on this module's
+    // public surface. Must track the same version as the core stripeterminal artifact.
+    implementation(libs.stripeterminal.taptopay)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

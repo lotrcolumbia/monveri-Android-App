@@ -54,9 +54,10 @@ import com.stripe.stripeterminal.external.models.Reader
 /**
  * Reader settings — pair, view, and forget the Stripe M2 reader.
  *
- * Permission flow: API 31+ asks for `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT`; older devices fall
- * back to `ACCESS_FINE_LOCATION`. Discovery doesn't start until the cashier grants permission;
- * a denial path renders a recovery sheet pointing to system Settings.
+ * Permission flow: API 31+ asks for `BLUETOOTH_SCAN` + `BLUETOOTH_CONNECT`; every version also
+ * needs `ACCESS_FINE_LOCATION` (a Stripe Terminal SDK requirement for reader discovery, not an
+ * OS-version-specific Bluetooth quirk). Discovery doesn't start until the cashier grants
+ * permission; a denial path renders a recovery sheet pointing to system Settings.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -198,8 +199,8 @@ private fun PermissionPanel(permissions: MultiplePermissionsState) {
         modifier = Modifier.fillMaxWidth(),
         icon = Icons.Filled.Bluetooth,
         title = "Bluetooth permission needed",
-        message = "Bluetooth lets your phone talk to the card reader. Location is required on " +
-            "older Android versions only.",
+        message = "Bluetooth lets your phone talk to the card reader. Stripe also requires " +
+            "location access to tag where the payment happened.",
         actionLabel = "Grant access",
         onAction = { permissions.launchMultiplePermissionRequest() },
     )
@@ -344,10 +345,16 @@ private fun ConnectionDot(connected: Boolean) {
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 private fun rememberBluetoothPermissions(): MultiplePermissionsState {
-    val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-    } else {
-        listOf(Manifest.permission.ACCESS_FINE_LOCATION)
+    val perms = buildList {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            add(Manifest.permission.BLUETOOTH_SCAN)
+            add(Manifest.permission.BLUETOOTH_CONNECT)
+        }
+        // Stripe Terminal requires location on every Android version to discover readers (it
+        // tags the payment location for fraud prevention) — independent of the OS's own
+        // BLE-scan `neverForLocation` carve-out, which only covers Bluetooth's own permission
+        // split above.
+        add(Manifest.permission.ACCESS_FINE_LOCATION)
     }
     return rememberMultiplePermissionsState(permissions = perms)
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -254,11 +255,19 @@ private fun StepperBox(onDecrement: () -> Unit, onIncrement: () -> Unit, quantit
 
 @Composable
 private fun StickyTotalsBar(cart: Cart, onEditDiscount: () -> Unit, onCheckout: () -> Unit) {
+    // A plain Surface (unlike Material3's NavigationBar) doesn't inset itself for the system
+    // navigation bar — with targetSdk 35 enforcing edge-to-edge on Android 15+, this bar drew
+    // its Checkout button partially underneath the system nav bar without this padding.
     Surface(
         tonalElevation = TOTALS_TONAL_ELEVATION,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding(),
     ) {
-        Column(modifier = Modifier.padding(MonveriSpacing.Lg)) {
+        Column(
+            modifier = Modifier.padding(MonveriSpacing.Lg),
+            verticalArrangement = Arrangement.spacedBy(MonveriSpacing.Sm),
+        ) {
             TotalsRow(label = "Subtotal", valueCents = cart.totals.subtotalCents)
             DiscountRow(
                 discountCents = cart.totals.discountCents,

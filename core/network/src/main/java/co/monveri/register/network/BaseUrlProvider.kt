@@ -17,5 +17,14 @@ interface BaseUrlProvider {
 
         /** Parsed host portion of [UNPAIRED_PLACEHOLDER] — single source of truth. */
         val UNPAIRED_HOST: String = UNPAIRED_PLACEHOLDER.toHttpUrl().host
+
+        /**
+         * Parsed path portion of [UNPAIRED_PLACEHOLDER] (`/api/register/`) — the fixed prefix
+         * every Retrofit endpoint path (e.g. `auth/employee-login.php`) resolves against. Lets
+         * [HostSwitchInterceptor] recover just the endpoint-relative path so it can graft it onto
+         * the real paired store's full path (which carries a `/stores/<token>` segment the
+         * placeholder doesn't have) instead of discarding it.
+         */
+        val UNPAIRED_PATH: String = UNPAIRED_PLACEHOLDER.toHttpUrl().encodedPath
     }
 }

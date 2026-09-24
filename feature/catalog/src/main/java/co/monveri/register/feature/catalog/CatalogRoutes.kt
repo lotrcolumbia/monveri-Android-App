@@ -7,8 +7,11 @@ package co.monveri.register.feature.catalog
 object CatalogRoutes {
     const val LIST = "catalog/list"
     const val DETAIL = "catalog/detail/{productId}"
+    const val CATEGORY_PRODUCTS = "catalog/category/{categoryId}"
 
     fun detailFor(productId: Long): String = "catalog/detail/$productId"
+    fun categoryProductsFor(categoryId: String): String = "catalog/category/$categoryId"
 
     const val ARG_PRODUCT_ID: String = "productId"
+    const val ARG_CATEGORY_ID: String = "categoryId"
 }

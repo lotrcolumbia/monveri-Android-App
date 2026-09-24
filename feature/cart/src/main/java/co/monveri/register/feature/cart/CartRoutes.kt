@@ -6,4 +6,5 @@ package co.monveri.register.feature.cart
 object CartRoutes {
     const val CART = "cart/main"
     const val CUSTOMER_LOOKUP = "cart/customer"
+    const val CHECKOUT = "cart/checkout"
 }

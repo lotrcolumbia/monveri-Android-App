@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "co.monveri.register.model"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 29
@@ -26,6 +26,8 @@ kotlin {
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
+
+    testImplementation(libs.junit)
 
     detektPlugins(libs.detekt.formatting)
 }

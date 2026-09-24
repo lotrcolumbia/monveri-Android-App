@@ -42,9 +42,10 @@ coil = "2.7.0"
 androidx-camera = "1.4.0"
 mlkit-barcode = "17.3.0"
 
-# Stripe Terminal — Bluetooth M2 reader (Phase 4); Tap to Pay arrives in Phase 5.
-# 3.x is the current stable line for the Android SDK; major-version bumps require code review.
-stripeterminal = "3.10.0"
+# Stripe Terminal — Bluetooth M2 reader (Phase 4) + Tap to Pay on Android (Phase 5).
+# 4.x is required for the TapToPay* API surface (the v3 line only exposes the legacy LocalMobile*
+# names). 4.5.0 is the latest 4.x; v4 consolidated all connect*Reader() into Terminal.connectReader.
+stripeterminal = "4.5.0"
 
 # Compose-friendly runtime permission requests (Bluetooth + Location for reader discovery).
 accompanist-permissions = "0.36.0"
@@ -112,10 +113,11 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "androidx-camera" }
 mlkit-barcode = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkit-barcode" }
 
-# Stripe Terminal — at v3.x the Bluetooth-capable SDK ships as a single combined artifact
-# (the -core / -bluetooth / -localmobile module split happens in v5.x). Phase 5 will add
-# the Tap to Pay path alongside this when it switches to the modular -core + -localmobile setup.
+# Stripe Terminal — the combined `stripeterminal` artifact carries core + the Bluetooth M2 transport.
+# Tap to Pay on Android is a separate add-on artifact `stripeterminal-taptopay` (renamed from the v3
+# `stripeterminal-localmobile` in v4.0.0); it must be pinned to the exact same version as the core.
 stripeterminal = { group = "com.stripe", name = "stripeterminal", version.ref = "stripeterminal" }
+stripeterminal-taptopay = { group = "com.stripe", name = "stripeterminal-taptopay", version.ref = "stripeterminal" }
 
 # Accompanist permissions (Compose runtime permission helpers)
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist-permissions" }

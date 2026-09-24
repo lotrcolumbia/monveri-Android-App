@@ -104,8 +104,13 @@ object NetworkModule {
         val isAuthenticated = request.header(AuthHeaders.STORE_KEY) != null ||
             request.header("Authorization") != null
         val isPiiEndpoint = request.url.encodedPath.contains("/customers/")
+        // Expenses needs read-your-writes: create a receipt, then immediately re-list page 1 to
+        // show it (ExpenseListScreen's resume-triggered refresh does exactly this). A 60s cache
+        // on an identical `list.php?page=1&per_page=25` URL would silently serve the pre-create
+        // snapshot and make the new expense appear to vanish for up to a minute.
+        val isFreshnessSensitiveEndpoint = request.url.encodedPath.contains("/expenses/")
         val directive = when {
-            isPiiEndpoint -> "no-store"
+            isPiiEndpoint || isFreshnessSensitiveEndpoint -> "no-store"
             isAuthenticated -> "private, max-age=$CACHE_MAX_AGE_SECONDS"
             else -> "max-age=$CACHE_MAX_AGE_SECONDS"
         }

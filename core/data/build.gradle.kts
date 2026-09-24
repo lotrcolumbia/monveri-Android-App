@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "co.monveri.register.data"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 29
@@ -51,6 +51,7 @@ dependencies {
     // AuthRepository handles retrofit2.HttpException at the data-layer boundary so it can
     // translate to NetworkResult.Failure; retrofit is part of the public surface here.
     implementation(libs.retrofit)
+    implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)

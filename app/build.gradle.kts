@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,21 +10,47 @@ plugins {
     alias(libs.plugins.detekt)
 }
 
+// Release signing — `key.properties` is git-ignored (see .gitignore); it and the keystore file
+// under `keystore/` never get committed. Signing is skipped gracefully (falls back to no
+// signingConfig, which Gradle then debug-signs) when the file is absent, so a fresh checkout
+// without the keystore still builds a debug-installable APK — it just can't be uploaded to Play.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseSigning = keystorePropertiesFile.exists()
+if (hasReleaseSigning) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
     // Namespace matches the Kotlin/Java source package so manifest-relative class names
     // (`.MainActivity`, `.MonveriApp`) resolve to real classes. Distinct from `applicationId`,
-    // which is the installed APK package ID and intentionally mirrors the iOS bundle ID.
+    // which is the installed APK package ID.
     namespace = "co.monveri.register"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "co.monveri.MonveriRegister"
+        // Lowercase to match the Play Console app entry (`co.monveri.monveriregister`) — Play
+        // locks the package name permanently at app creation and package IDs are case-sensitive,
+        // so this has to match exactly. Deliberately not the same casing as the iOS bundle ID
+        // (`co.monveri.MonveriRegister`); the two platforms' identifiers don't need to match.
+        applicationId = "co.monveri.monveriregister"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 1
+        targetSdk = 36
+        versionCode = 2
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -33,6 +61,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         debug {
             applicationIdSuffix = ".debug"

@@ -25,4 +25,20 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindCartRepository(impl: CartRepositoryImpl): CartRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRegisterSessionRepository(impl: RegisterSessionRepositoryImpl): RegisterSessionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBackOfficeRepository(impl: BackOfficeRepositoryImpl): BackOfficeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExpenseRepository(impl: ExpenseRepositoryImpl): ExpenseRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCheckoutRepository(impl: CheckoutRepositoryImpl): CheckoutRepository
 }

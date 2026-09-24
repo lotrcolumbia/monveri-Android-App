@@ -31,23 +31,24 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-private const val PIN_LENGTH = 4
-
 /**
- * 4-digit numeric pad. On the fourth digit, the ViewModel auto-submits. A successful login
- * fires `onAuthenticated` once.
+ * Numeric pad for the employee timeclock PIN ([EMPLOYEE_PIN_LENGTH] digits). On the final digit,
+ * the ViewModel auto-submits. A successful login fires `onAuthenticated` once.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PinScreen(
     onAuthenticated: () -> Unit,
+    onNeedsRegisterOpen: () -> Unit,
     onUnpair: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
     val state by viewModel.login.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.employee) {
-        if (state.employee != null) onAuthenticated()
+        if (state.employee != null) {
+            if (viewModel.needsRegisterOpen()) onNeedsRegisterOpen() else onAuthenticated()
+        }
     }
 
     Scaffold(
@@ -98,7 +99,7 @@ fun PinScreen(
 @Composable
 private fun PinDots(filled: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        repeat(PIN_LENGTH) { index ->
+        repeat(EMPLOYEE_PIN_LENGTH) { index ->
             val isFilled = index < filled
             Surface(
                 modifier = Modifier
