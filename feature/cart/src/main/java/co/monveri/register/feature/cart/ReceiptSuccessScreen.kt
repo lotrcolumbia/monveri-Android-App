@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,13 +31,22 @@ import co.monveri.register.design.components.MonveriButtonVariant
 import co.monveri.register.design.components.MonveriTextField
 import co.monveri.register.design.components.MoneyText
 import co.monveri.register.design.tokens.MonveriSpacing
+import kotlinx.coroutines.delay
 
 /** Post-sale confirmation — total, change-due (cash only), email receipt, done. Matches iOS's
- * `ReceiptSuccessView` minus print (no AirPrint equivalent wired up in this slice). */
+ * `ReceiptSuccessView` minus print (no AirPrint equivalent wired up in this slice). Auto-dismisses
+ * to Home after [AUTO_DISMISS_SECONDS] unless the cashier is mid-email, matching Phase 6's plan. */
 @Composable
 internal fun ReceiptSuccessContent(state: CheckoutUiState, viewModel: CheckoutViewModel, onDone: () -> Unit) {
     var showEmailDialog by remember { mutableStateOf(false) }
     val cashOutcome = state.lastOutcome as? PaymentOutcome.Cash
+
+    LaunchedEffect(showEmailDialog) {
+        if (showEmailDialog) return@LaunchedEffect
+        delay(AUTO_DISMISS_SECONDS * MILLIS_PER_SECOND)
+        viewModel.finish()
+        onDone()
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(MonveriSpacing.Lg),
@@ -130,3 +140,5 @@ private fun EmailReceiptDialog(isSending: Boolean, onSend: (String) -> Unit, onD
 }
 
 private const val MIN_EMAIL_LENGTH = 5
+private const val AUTO_DISMISS_SECONDS = 8L
+private const val MILLIS_PER_SECOND = 1_000L

@@ -75,8 +75,8 @@ class CheckoutViewModel @Inject constructor(
             it.copy(
                 step = CheckoutStep.TENDER_PICKER,
                 errorMessage = null,
-                splitLegAState = LegState.Pending,
-                splitLegBState = LegState.Pending,
+                splitPayments = emptyList(),
+                splitAmountText = "",
             )
         }
     }
@@ -115,42 +115,42 @@ class CheckoutViewModel @Inject constructor(
         submit(PaymentOutcome.Other(service, reference?.takeIf { it.isNotBlank() }))
     }
 
-    // ---- Split (two legs) -------------------------------------------------------------------
+    // ---- Split (open-ended list of payments, no hard cap) -----------------------------------
 
-    fun confirmSplitLeg(legIndex: Int, outcome: PaymentOutcome) {
-        updateState { state ->
-            if (legIndex == FIRST_LEG) {
-                state.copy(splitLegAState = LegState.Done(outcome))
-            } else {
-                state.copy(splitLegBState = LegState.Done(outcome))
-            }
-        }
+    /** Cash committed instantly, mirroring standalone [confirmCash] — if the cashier tenders more
+     * than what's left on the balance, that fully covers it and change is owed on this leg. */
+    fun confirmSplitCash(tenderedCents: Long) {
+        val remaining = _state.value.splitRemainingCents()
+        val applied = minOf(tenderedCents, remaining)
+        val change = (tenderedCents - remaining).coerceAtLeast(0L)
+        appendSplitPayment(PaymentOutcome.Cash(tenderedCents, change, applied), applied)
     }
 
-    fun beginSplitLegCard(legIndex: Int, amountCents: Long) {
-        updateState { state ->
-            if (legIndex == FIRST_LEG) state.copy(splitLegAState = LegState.Charging) else state.copy(splitLegBState = LegState.Charging)
-        }
+    fun confirmSplitOther(service: String, reference: String?, amountCents: Long) {
+        appendSplitPayment(PaymentOutcome.Other(service, reference?.takeIf { it.isNotBlank() }), amountCents)
+    }
+
+    fun beginSplitCard(amountCents: Long) {
+        updateState { it.copy(isChargingSplitCard = true) }
         viewModelScope.launch {
             val result = paymentSession.begin(amountCents, metadata = mapOf(METADATA_SOURCE_KEY to METADATA_SOURCE_VALUE))
             if (result is PaymentSessionState.Succeeded) {
-                confirmSplitLeg(legIndex, PaymentOutcome.Card(result.paymentIntentId, result.cardBrand, result.cardLastFour))
-            } else {
-                updateState { state ->
-                    if (legIndex == FIRST_LEG) state.copy(splitLegAState = LegState.Pending) else state.copy(splitLegBState = LegState.Pending)
-                }
+                appendSplitPayment(PaymentOutcome.Card(result.paymentIntentId, result.cardBrand, result.cardLastFour), amountCents)
             }
+            updateState { it.copy(isChargingSplitCard = false) }
+        }
+    }
+
+    private fun appendSplitPayment(outcome: PaymentOutcome, amountCents: Long) {
+        updateState {
+            it.copy(splitPayments = it.splitPayments + AppliedSplitPayment(outcome, amountCents), splitAmountText = "")
         }
     }
 
     fun confirmSplit() {
         val state = _state.value
-        val legA = (state.splitLegAState as? LegState.Done)?.outcome ?: return
-        val legB = (state.splitLegBState as? LegState.Done)?.outcome ?: return
-        val legs = listOf(
-            outcomeToSplitLeg(legA, state.splitLegAAmountCents(state.totalCents)),
-            outcomeToSplitLeg(legB, state.totalCents - state.splitLegAAmountCents(state.totalCents)),
-        )
+        if (state.splitRemainingCents() > 0L || state.splitPayments.isEmpty()) return
+        val legs = state.splitPayments.map { outcomeToSplitLeg(it.outcome, it.amountCents) }
         submit(PaymentOutcome.Split(legs))
     }
 
@@ -265,17 +265,9 @@ class CheckoutViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MILLIS: Long = 5_000
-        const val FIRST_LEG: Int = 0
         const val METADATA_SOURCE_KEY: String = "source"
         const val METADATA_SOURCE_VALUE: String = "monveri_register_android"
     }
-}
-
-/** Which side of the tap-to-charge lifecycle a split leg is in. */
-sealed class LegState {
-    data object Pending : LegState()
-    data object Charging : LegState()
-    data class Done(val outcome: PaymentOutcome) : LegState()
 }
 
 data class CheckoutUiState(
@@ -283,11 +275,9 @@ data class CheckoutUiState(
     val totalCents: Long = 0L,
     val readerConnected: Boolean = false,
     val cardSessionState: PaymentSessionState = PaymentSessionState.Idle,
-    val splitLegAMethod: String = "Cash",
-    val splitLegAAmountText: String = "",
-    val splitLegBMethod: String = "Card",
-    val splitLegAState: LegState = LegState.Pending,
-    val splitLegBState: LegState = LegState.Pending,
+    val splitPayments: List<AppliedSplitPayment> = emptyList(),
+    val splitAmountText: String = "",
+    val isChargingSplitCard: Boolean = false,
     val lastOutcome: PaymentOutcome? = null,
     val ticketId: Long? = null,
     val ticketToken: String? = null,
@@ -296,6 +286,18 @@ data class CheckoutUiState(
     val isEmailingReceipt: Boolean = false,
     val emailReceiptResult: String? = null,
 ) {
-    fun splitLegAAmountCents(totalCents: Long): Long =
-        splitLegAAmountText.toLongOrNull()?.coerceIn(0L, totalCents) ?: 0L
+    /** What's left to collect in the current split — the plan's "remaining balance". */
+    fun splitRemainingCents(): Long = (totalCents - splitPayments.sumOf { it.amountCents }).coerceAtLeast(0L)
+
+    /** The amount the cashier is about to apply for the next split payment — defaults to the full
+     * remaining balance (so a single tap on one tender covers it), editable down for a partial.
+     * [splitAmountText] is the raw dollar string the cashier is typing (e.g. "1.00"), not cents —
+     * parsed fresh here rather than reformatted on every keystroke, so typing doesn't fight the
+     * field's own displayed value. */
+    fun splitNextAmountCents(): Long {
+        val typedCents = splitAmountText.toDoubleOrNull()?.let { (it * CENTS_PER_DOLLAR).toLong() }
+        return (typedCents ?: splitRemainingCents()).coerceIn(0L, totalCents)
+    }
 }
+
+private const val CENTS_PER_DOLLAR = 100.0

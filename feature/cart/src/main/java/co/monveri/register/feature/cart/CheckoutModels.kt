@@ -40,3 +40,7 @@ sealed class PaymentOutcome {
 }
 
 data class SplitLeg(val method: String, val amountCents: Long, val reference: String?)
+
+/** One committed payment within an in-progress split — the plan's "no hard cap" list, appended to
+ * as the cashier collects each tender until the remaining balance hits zero. */
+data class AppliedSplitPayment(val outcome: PaymentOutcome, val amountCents: Long)

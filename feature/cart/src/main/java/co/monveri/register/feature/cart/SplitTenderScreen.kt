@@ -11,16 +11,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,21 +40,13 @@ import java.math.RoundingMode
 private val SPLIT_METHODS = listOf("Cash", "Card", "Other")
 
 /**
- * Two-leg split tender — leg A's amount is entered by hand (must be less than the total), leg B
- * is always the remainder. Matches iOS's `SplitPaymentView` (Venmo is intentionally excluded from
- * split legs on iOS too).
+ * Open-ended split tender — an accumulating list of applied payments plus a running remaining
+ * balance, matching Phase 6's plan (no hard cap on the number of legs). Each payment is committed
+ * the moment it's collected; "Complete Split" only becomes available once nothing is left owing.
  */
 @Composable
 internal fun SplitTenderContent(state: CheckoutUiState, viewModel: CheckoutViewModel) {
-    var legAMethod by remember { mutableStateOf("Cash") }
-    var legBMethod by remember { mutableStateOf("Card") }
-    var legAOtherRef by remember { mutableStateOf("") }
-    var legBOtherRef by remember { mutableStateOf("") }
-
-    val legAAmountCents = state.splitLegAAmountCents(state.totalCents)
-    val legBAmountCents = state.totalCents - legAAmountCents
-    val legALocked = state.splitLegAState !is LegState.Pending
-    val legBLocked = state.splitLegBState !is LegState.Pending
+    val remaining = state.splitRemainingCents()
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(MonveriSpacing.Lg),
@@ -65,140 +58,114 @@ internal fun SplitTenderContent(state: CheckoutUiState, viewModel: CheckoutViewM
         }
         HorizontalDivider()
 
-        SplitLegCard(
-            title = "Leg 1",
-            method = legAMethod,
-            onMethodSelected = { legAMethod = it },
-            amountCents = legAAmountCents,
-            amountEditable = !legALocked,
-            onAmountChanged = { text ->
-                viewModel.updateState { s -> s.copy(splitLegAAmountText = dollarsTextToCentsText(text)) }
-            },
-            reference = legAOtherRef,
-            onReferenceChanged = { legAOtherRef = it },
-            legState = state.splitLegAState,
-            enabled = legAAmountCents > 0 && legAAmountCents < state.totalCents,
-            onConfirm = {
-                when (legAMethod) {
-                    "Card" -> viewModel.beginSplitLegCard(0, legAAmountCents)
-                    "Cash" -> viewModel.confirmSplitLeg(0, PaymentOutcome.Cash(legAAmountCents, 0L, legAAmountCents))
-                    else -> viewModel.confirmSplitLeg(0, PaymentOutcome.Other("Other", legAOtherRef.takeIf { it.isNotBlank() }))
+        state.splitPayments.forEach { payment -> AppliedPaymentRow(payment) }
+
+        if (remaining > 0L) {
+            CompositionLocalProvider(LocalContentColor provides MonveriTheme.statusColors.warning) {
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text("Remaining", style = MaterialTheme.typography.titleMedium)
+                    MoneyText(cents = remaining, style = MaterialTheme.typography.titleMedium)
                 }
-            },
-        )
-
-        if (legALocked) {
-            SplitLegCard(
-                title = "Leg 2 (remainder)",
-                method = legBMethod,
-                onMethodSelected = { legBMethod = it },
-                amountCents = legBAmountCents,
-                amountEditable = false,
-                onAmountChanged = {},
-                reference = legBOtherRef,
-                onReferenceChanged = { legBOtherRef = it },
-                legState = state.splitLegBState,
-                enabled = legBAmountCents > 0,
-                onConfirm = {
-                    when (legBMethod) {
-                        "Card" -> viewModel.beginSplitLegCard(1, legBAmountCents)
-                        "Cash" -> viewModel.confirmSplitLeg(1, PaymentOutcome.Cash(legBAmountCents, 0L, legBAmountCents))
-                        else -> viewModel.confirmSplitLeg(1, PaymentOutcome.Other("Other", legBOtherRef.takeIf { it.isNotBlank() }))
-                    }
-                },
-            )
-        }
-
-        if (legALocked && legBLocked) {
+            }
+            HorizontalDivider()
+            AddPaymentSection(state = state, remaining = remaining, viewModel = viewModel)
+        } else {
             MonveriButton(text = "Complete Split", onClick = viewModel::confirmSplit, modifier = Modifier.fillMaxWidth())
         }
     }
 }
 
 @Composable
-@Suppress("LongParameterList")
-private fun SplitLegCard(
-    title: String,
-    method: String,
-    onMethodSelected: (String) -> Unit,
-    amountCents: Long,
-    amountEditable: Boolean,
-    onAmountChanged: (String) -> Unit,
-    reference: String,
-    onReferenceChanged: (String) -> Unit,
-    legState: LegState,
-    enabled: Boolean,
-    onConfirm: () -> Unit,
-) {
+private fun AppliedPaymentRow(payment: AppliedSplitPayment) {
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(payment.outcome.paymentMethod, style = MaterialTheme.typography.bodyLarge)
+        MoneyText(cents = payment.amountCents, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+private fun AddPaymentSection(state: CheckoutUiState, remaining: Long, viewModel: CheckoutViewModel) {
+    var method by remember { mutableStateOf("Cash") }
     var methodExpanded by remember { mutableStateOf(false) }
+    var otherService by remember { mutableStateOf(OtherTenderService.CASH_APP) }
+    var otherReference by remember { mutableStateOf("") }
+    val amountCents = state.splitNextAmountCents()
 
     Column(verticalArrangement = Arrangement.spacedBy(MonveriSpacing.Sm)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
+        Text("Add Payment", style = MaterialTheme.typography.titleSmall)
 
         Box {
-            OutlinedButton(
-                onClick = { if (amountEditable) methodExpanded = true },
-                enabled = amountEditable,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            OutlinedButton(onClick = { methodExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(method, modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
             DropdownMenu(expanded = methodExpanded, onDismissRequest = { methodExpanded = false }) {
                 SPLIT_METHODS.forEach { option ->
-                    DropdownMenuItem(text = { Text(option) }, onClick = { onMethodSelected(option); methodExpanded = false })
+                    DropdownMenuItem(text = { Text(option) }, onClick = { method = option; methodExpanded = false })
                 }
             }
         }
 
-        if (amountEditable) {
-            MonveriTextField(
-                value = if (amountCents == 0L) "" else dollarsText(amountCents),
-                onValueChange = onAmountChanged,
-                label = "Amount for this leg",
-                keyboardType = KeyboardType.Decimal,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text("Amount")
-                MoneyText(cents = amountCents)
-            }
-        }
+        MonveriTextField(
+            value = state.splitAmountText,
+            onValueChange = { text -> viewModel.updateState { it.copy(splitAmountText = text) } },
+            label = "Amount for this payment",
+            placeholder = dollarsText(remaining),
+            keyboardType = KeyboardType.Decimal,
+            modifier = Modifier.fillMaxWidth(),
+        )
 
         if (method == "Other") {
+            OtherServicePicker(selected = otherService, onSelect = { otherService = it })
             MonveriTextField(
-                value = reference,
-                onValueChange = onReferenceChanged,
+                value = otherReference,
+                onValueChange = { otherReference = it },
                 label = "Reference (optional)",
                 modifier = Modifier.fillMaxWidth(),
             )
         }
 
-        when (legState) {
-            LegState.Pending -> MonveriButton(
-                text = if (method == "Card") "Charge This Leg" else "Confirm Leg",
-                onClick = onConfirm,
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            LegState.Charging -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MonveriSpacing.Sm)) {
+        if (method == "Card" && state.isChargingSplitCard) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MonveriSpacing.Sm)) {
                 CircularProgressIndicator(modifier = Modifier.padding(MonveriSpacing.Xs))
                 Text("Charging…")
             }
-            is LegState.Done -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MonveriSpacing.Sm)) {
-                Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MonveriTheme.statusColors.success)
-                Text("Confirmed")
+        } else {
+            MonveriButton(
+                text = if (method == "Card") "Charge This Payment" else "Confirm Payment",
+                enabled = amountCents in 1..remaining,
+                onClick = {
+                    when (method) {
+                        "Cash" -> viewModel.confirmSplitCash(amountCents)
+                        "Card" -> viewModel.beginSplitCard(amountCents)
+                        else -> viewModel.confirmSplitOther(otherService.label, otherReference, amountCents)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun OtherServicePicker(selected: OtherTenderService, onSelect: (OtherTenderService) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            Text(selected.label, modifier = Modifier.weight(1f))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            OtherTenderService.entries.forEach { service ->
+                DropdownMenuItem(text = { Text(service.label) }, onClick = { onSelect(service); expanded = false })
             }
         }
-        HorizontalDivider()
     }
 }
 
 private fun dollarsText(cents: Long): String =
     BigDecimal(cents).movePointLeft(2).setScale(2, RoundingMode.HALF_UP).toPlainString()
-
-private fun dollarsTextToCentsText(text: String): String {
-    val value = text.toDoubleOrNull() ?: return "0"
-    return BigDecimal(value.toString()).movePointRight(2).setScale(0, RoundingMode.HALF_UP).toPlainString()
-}
